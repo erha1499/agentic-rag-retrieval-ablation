@@ -96,15 +96,21 @@ def build_index(root, workers=1):
 
 
 class Retriever:
-    def __init__(self, root, client):
+    def __init__(self, root, client, config):
         self.root = Path(root)
         self.corpus = self.root / 'data/corpus'
         self.client = client
+        for name in ('vector_top_k', 'keyword_top_k', 'rrf_k',
+                     'rerank_candidate_count', 'rag_return_char_budget'):
+            value = config.get(name)
+            if type(value) is not int or value < (0 if name == 'rrf_k' else 1):
+                raise ValueError(f'Invalid retrieval configuration: {name}')
+            setattr(self, name, value)
         self.chunks = load_chunks(self.root)
-        config = json.loads((self.root/'data/index/config.json').read_text())
-        if config['chunks_sha256'] != digest(self.root/'data/chunks.jsonl'):
+        index_config = json.loads((self.root/'data/index/config.json').read_text())
+        if index_config['chunks_sha256'] != digest(self.root/'data/chunks.jsonl'):
             raise RuntimeError('Corpus changed after indexing')
-        if config['model'] != EMBED_MODEL or config['dimensions'] != 512:
+        if index_config['model'] != EMBED_MODEL or index_config['dimensions'] != 512:
             raise RuntimeError('Embedding model or dimensions differ between corpus and query')
         self.vectors = np.load(self.root/'data/index/vectors.npy',mmap_mode='r')
         if self.vectors.shape != (len(self.chunks),512):
@@ -121,7 +127,7 @@ class Retriever:
         if not hasattr(self._local,'conn'):
             self._local.conn = sqlite3.connect((self.root/'data/index/keyword.sqlite').resolve().as_uri()+'?mode=ro',uri=True)
         prefix = '%' if scope == 'all' else ('docs/%' if scope == 'doc' else 'code/%')
-        rows = self._local.conn.execute('SELECT rowid FROM passages WHERE passages MATCH ? AND path LIKE ? ORDER BY bm25(passages,3,2,1) LIMIT 30',(match,prefix)).fetchall()
+        rows = self._local.conn.execute('SELECT rowid FROM passages WHERE passages MATCH ? AND path LIKE ? ORDER BY bm25(passages,3,2,1) LIMIT ?',(match,prefix,self.keyword_top_k)).fetchall()
         return [i-1 for (i,) in rows]
     def search(self,query,scope='all',top_k=6,label='retrieval'):
         if not isinstance(query,str) or not query.strip() or len(query)>2000:
@@ -136,15 +142,15 @@ class Retriever:
         scores = self.vectors @ (q/norm)
         if scope != 'all':
             scores[self.kind != scope] = -np.inf
-        n = min(30,int(np.isfinite(scores).sum()))
+        n = min(self.vector_top_k,int(np.isfinite(scores).sum()))
         dense = np.argpartition(scores,-n)[-n:] if n else np.array([],dtype=int)
         dense = sorted(map(int,dense),key=lambda i:(-float(scores[i]),i))
         lexical = self.keyword(query,scope)
         rrf = {}
         for ranking in (dense,lexical):
             for rank,i in enumerate(ranking,1):
-                rrf[i] = rrf.get(i,0)+1/(60+rank)
-        candidates = sorted(rrf,key=lambda i:(-rrf[i],i))[:30]
+                rrf[i] = rrf.get(i,0)+1/(self.rrf_k+rank)
+        candidates = sorted(rrf,key=lambda i:(-rrf[i],i))[:self.rerank_candidate_count]
         if not candidates:
             return {'results':[],'candidate_count':0}
         reranked = self.client.rerank(query,[embed_text(self.chunks[i]) for i in candidates],label=label+':rerank')
@@ -156,7 +162,7 @@ class Retriever:
                 continue
             lines=(self.corpus/c['path']).read_text().splitlines()
             text='\n'.join(lines[lo-1:hi])
-            if total_chars+len(text)>12000:
+            if total_chars+len(text)>self.rag_return_char_budget:
                 omitted+=1
                 continue
             selected.append({'path':c['path'],'kind':c['kind'],'start_line':lo,'end_line':hi,

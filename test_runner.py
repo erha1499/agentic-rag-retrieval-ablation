@@ -62,7 +62,8 @@ with tempfile.TemporaryDirectory() as tmp:
     (corpus/'docs').mkdir(parents=True);(corpus/'code').mkdir();index.mkdir()
     chunks=[]
     for i in range(35):
-        path=f'code/file{i:02d}.c';text='alpha\ncode detail'
+        frequency={0:2,1:8,2:6,3:4,34:10}.get(i,1)
+        path=f'code/file{i:02d}.c';text='alpha '*frequency+'\n'+'detail '*(20-frequency)
         (corpus/path).write_text(text)
         chunks.append({'path':path,'title':'code','kind':'code','text':text,
             'start_line':1,'end_line':2,'parent_start_line':1,'parent_end_line':2})
@@ -78,7 +79,8 @@ with tempfile.TemporaryDirectory() as tmp:
     from qwen_client import EMBED_MODEL
     (index/'config.json').write_text(json.dumps({'chunks_sha256':hashlib.sha256(chunk_file.read_bytes()).hexdigest(),
                                                'model':EMBED_MODEL,'dimensions':512}))
-    matrix=np.zeros((len(chunks),512),dtype=np.float32);matrix[:35,0]=1
+    matrix=np.zeros((len(chunks),512),dtype=np.float32)
+    matrix[:35,0]=np.linspace(1,.82,35);matrix[:35,1]=np.sqrt(1-matrix[:35,0]**2)
     matrix[35,:2]=[0.8,0.6];matrix[36,:2]=[0.6,0.8];matrix[37,1]=1
     np.save(index/'vectors.npy',matrix)
     conn=sqlite3.connect(index/'keyword.sqlite')
@@ -86,7 +88,8 @@ with tempfile.TemporaryDirectory() as tmp:
     conn.executemany('INSERT INTO passages(rowid,path,title,text) VALUES (?,?,?,?)',
         [(i+1,c['path'],c['title'],c['text']) for i,c in enumerate(chunks)])
     conn.commit();conn.close()
-    fake=FakeRetrievalClient();retriever=Retriever(root,fake)
+    config=json.loads((Path(__file__).parent/'experiment_config.json').read_text())
+    fake=FakeRetrievalClient();retriever=Retriever(root,fake,config)
     # 35 个更强的源码命中不能占用 doc scope 的 SQL LIMIT 30 名额。
     assert set(retriever.keyword('alpha','doc'))=={35,36}
     assert len(retriever.keyword('alpha','code'))==30
@@ -110,4 +113,33 @@ with tempfile.TemporaryDirectory() as tmp:
     code_found=retriever.search('alpha',scope='code',top_k=3,label='mock-code')
     assert len(code_found['results'])==3 and all(r['kind']=='code' for r in code_found['results'])
     assert code_found['returned_chars']==sum(len(r['text']) for r in code_found['results'])
+
+    tuned=Retriever(root,fake,{**config,'vector_top_k':2,'keyword_top_k':1,'rerank_candidate_count':3})
+    found=tuned.search('alpha',scope='code',top_k=3)
+    assert (found['dense_count'],found['keyword_count'],found['candidate_count'])==(2,1,3)
+    assert len(fake.reranked[-1][1])==3
+    capped=Retriever(root,fake,{**config,'vector_top_k':2,'keyword_top_k':1,'rerank_candidate_count':1})
+    assert capped.search('alpha',scope='code')['candidate_count']==1
+    assert len(fake.reranked[-1][1])==1
+    # 相同候选中，RRF k=0 偏向单路第一名，k=60 更偏向两路排名都靠前者。
+    for k,expected in [(0,'code/file00.c'),(60,'code/file01.c')]:
+        tuned=Retriever(root,fake,{**config,'vector_top_k':35,'keyword_top_k':35,
+                                  'rerank_candidate_count':1,'rrf_k':k})
+        found=tuned.search('alpha',scope='code')
+        assert found['results'][0]['path']==expected
+        assert fake.reranked[-1][1][0].startswith(expected+'\n')
+    budget=len((corpus/'docs/other.txt').read_text())
+    limited=Retriever(root,fake,{**config,'rag_return_char_budget':budget})
+    found=limited.search('alpha',scope='doc')
+    assert [r['path'] for r in found['results']]==['docs/other.txt']
+    assert found['returned_chars']==budget and found['omitted_for_return_budget']==2
+    for name in ('vector_top_k','keyword_top_k','rrf_k','rerank_candidate_count','rag_return_char_budget'):
+        for value in [None,False,1.5,'3',-1]+([0] if name!='rrf_k' else []):
+            try:Retriever(root,fake,{**config,name:value})
+            except ValueError as error:assert name in str(error)
+            else:raise AssertionError(f'Invalid {name} accepted: {value!r}')
+        missing={key:value for key,value in config.items() if key!=name}
+        try:Retriever(root,fake,missing)
+        except ValueError as error:assert name in str(error)
+        else:raise AssertionError(f'Missing {name} accepted')
 print('Retriever scope, RRF, rerank input and parent deduplication mock checks passed; no API calls')

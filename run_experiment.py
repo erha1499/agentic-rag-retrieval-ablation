@@ -59,7 +59,7 @@ READ = {'type': 'function', 'function': {'name': 'read_file', 'description':
         'path': {'type': 'string'}, 'start_line': {'type': 'integer', 'minimum': 1},
         'end_line': {'type': 'integer', 'minimum': 1}}, 'required': ['path']}}}
 RAG = {'type': 'function', 'function': {'name': 'rag_search', 'description':
-    '对文档或源码做向量与关键词混合检索、融合和精排，返回相关父块及原文行范围，正文总量最多12000字符。',
+    '对文档或源码做向量与关键词混合检索、融合和精排，返回相关父块及原文行范围，正文总量受运行配置限制。',
     'parameters': {'type': 'object', 'properties': {
         'query': {'type': 'string', 'maxLength': 2000},
         'scope': {'type': 'string', 'enum': ['all', 'doc', 'code']},
@@ -409,7 +409,7 @@ def main():
         raise ValueError('本轮新增调用的预算必须大于0且不超过3元')
     cases = select_cases(json.loads((ROOT / f'data/cases_{args.split}.json').read_text()), args.ids)
     bind_run(ROOT)
-    client = Client(ROOT, cap_cny=config['budget_cap_cny']); retriever = Retriever(ROOT, client)
+    client = Client(ROOT, cap_cny=config['budget_cap_cny']); retriever = Retriever(ROOT, client, config)
     results = schedule(cases, args.split, client, retriever, config)
     print(json.dumps({'scheduled_tasks': len(results), 'api_summary': client.summary()}, ensure_ascii=False), flush=True)
 

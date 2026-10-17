@@ -8,10 +8,11 @@ import re
 import statistics
 
 from experiment_state import bind_run
-from prepare_review import ROOT, ledger_records, prepare, read_json, review_directory, task_records, was_executed
+from prepare_review import ROOT, TERMINAL_EXCLUSIONS, ledger_records, prepare, read_json, review_directory, task_records, was_executed
 from qwen_client import CHAT_MODEL, Client
 
 OUTPUT = ROOT / 'outputs'
+NON_TERMINAL = TERMINAL_EXCLUSIONS | {'in_flight'}
 
 
 def cost_stats(records, cap=3):
@@ -101,6 +102,7 @@ def aggregate(rows):
     executed = [row for row in rows if row['已执行']]
     timed = [row['耗时秒'] for row in executed if row['耗时秒'] is not None]
     reviewed = [row for row in executed if row['已评审']]
+    finalized = bool(executed) and all(row['已评审'] and row['运行状态'] not in NON_TERMINAL for row in executed)
     def median(values):
         return statistics.median(values) if values else None
     return {
@@ -110,9 +112,9 @@ def aggregate(rows):
         'pending_review': sum(row['可评分'] and not row['已评审'] for row in executed),
         'strict_passed': sum(row['严格通过'] is True for row in executed),
         'strict_task_success_rate': (sum(row['严格通过'] is True for row in executed) / len(executed)
-                                     if executed and all(row['已评审'] for row in executed) else None),
+                                     if finalized else None),
         'strict_planned_success_rate': (sum(row['严格通过'] is True for row in rows) / len(rows)
-                                       if executed and all(row['已评审'] for row in executed) else None),
+                                       if finalized else None),
         'planned_fact_count': sum(row['必要事实数'] for row in rows),
         'assessed_fact_count': sum(row['必要事实数'] for row in reviewed if row['可评分']),
         'correct_covered_facts': sum(row['覆盖且正确事实数'] or 0 for row in reviewed),
@@ -148,11 +150,11 @@ def paired_outcomes(rows):
         a, b = pair['A'], pair['B']
         both = a['已执行'] and b['已执行']
         result['both_executed'] += bool(both)
-        terminal = both and a['运行状态'] != 'running' and b['运行状态'] != 'running'
+        terminal = both and a['运行状态'] not in NON_TERMINAL and b['运行状态'] not in NON_TERMINAL
         result['both_terminal'] += bool(terminal)
         if not terminal:
             result['incomplete_pairs'] += 1
-        if not both or not (a['已评审'] and b['已评审']):
+        if not terminal or not (a['已评审'] and b['已评审']):
             continue
         result['reviewed_pairs'] += 1
         ap, bp = a['严格通过'] is True, b['严格通过'] is True
@@ -202,13 +204,16 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
             facts = validate_review(review, case, answer) if review else []
             costs = cost_stats(task_events, config['budget_cap_cny'])
             whole, ranged = tool_counts(run)
-            status = run.get('status', 'not_started')
-            passed = bool(review['strict_pass'] and status == 'complete') if review else None
+            status = 'in_flight' if costs['pending_calls'] else run.get('status', 'not_started')
+            passed = bool(review['strict_pass'] and status == 'complete') if review and status not in NON_TERMINAL else None
             rows.append({
                 '题号': case_id, '组别': arm, '问题': public_text(case['question']),
                 '题型': case['kind'], '难度': case.get('difficulty', '未标注'),
                 '场景': case.get('scenario', '未标注'),
                 '预期行为': case.get('expected_action', 'answer'), '运行状态': status,
+                '执行情况': ('已确认执行，仍有在途请求' if executed and costs['pending_calls'] else
+                             '在途，执行情况未知' if costs['pending_calls'] else
+                             '已确认执行' if executed else '未确认执行'),
                 '已执行': executed, '可评分': bool(executed and isinstance(answer, str) and answer.strip()),
                 '已评审': review is not None, '严格通过': passed,
                 '覆盖且正确事实数': sum(f['covered'] and f['correct'] for f in facts) if review else None,
@@ -229,18 +234,20 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
     def grouped(field):
         return {value: {arm: aggregate([row for row in rows if row[field] == value and row['组别'] == arm])
                         for arm in ('A', 'B')} for value in sorted({row[field] for row in rows})}
-    terminal = all(row['已执行'] and row['运行状态'] != 'running' for row in rows)
+    terminal = all(row['已执行'] and row['运行状态'] not in NON_TERMINAL for row in rows)
     fully_reviewed = terminal and all(row['已评审'] for row in rows)
     budget_stopped = any('budget' in row['运行状态'].lower() for row in rows)
+    api_total = cost_stats(records, config['budget_cap_cny'])
     result = {
         'split': split, 'freeze_sha256': fingerprint,
-        'state': ('not_started' if not any(row['已执行'] for row in rows) else
+        'state': ('in_flight' if api_total['pending_calls'] else
+                  'not_started' if not any(row['已执行'] for row in rows) else
                   'complete' if fully_reviewed else 'pending_review' if terminal else 'partial'),
         'budget_stopped': budget_stopped, 'planned_questions': len(cases), 'planned_tasks': len(rows),
         'executed_tasks': sum(row['已执行'] for row in rows),
         'by_arm': {arm: aggregate([row for row in rows if row['组别'] == arm]) for arm in ('A', 'B')},
         'by_kind': grouped('题型'), 'by_difficulty': grouped('难度'), 'by_scenario': grouped('场景'),
-        'paired': paired_outcomes(rows), 'api_total': cost_stats(records, config['budget_cap_cny']),
+        'paired': paired_outcomes(rows), 'api_total': api_total,
         'cost_by_phase': {phase: cost_stats([r for r in records if r.get('label', '').startswith(prefix)], config['budget_cap_cny'])
                           for phase, prefix in [('development', 'dev:'), ('formal', 'test:')]},
         'limitations': ['少量题目单次配对，不能声称跨数据库或统计显著的普遍收益',
