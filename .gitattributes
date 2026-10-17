@@ -1,0 +1,2 @@
+# 保留实验CSV原始换行和模型回答中的Markdown行尾空格
+*.csv -text whitespace=-blank-at-eol
