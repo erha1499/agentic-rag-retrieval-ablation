@@ -1,0 +1,249 @@
+{
+  "pre_registered_before_formal": true,
+  "definition": "至少一个必要出处来自≥3000英文词的自然文档页或≥3000行(含注释空行)源码文件",
+  "case_sha256": "eb8a21149e30413eaa6eafa921267a52611e561f45543254f71797812e79c22a",
+  "by_case": {
+    "T01": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T02": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T03": {
+      "long_material": true,
+      "long_docs": [
+        "docs/routine-vacuuming.txt"
+      ],
+      "long_code_files": []
+    },
+    "T04": {
+      "long_material": true,
+      "long_docs": [
+        "docs/queries-with.txt"
+      ],
+      "long_code_files": []
+    },
+    "T05": {
+      "long_material": true,
+      "long_docs": [
+        "docs/ddl-partitioning.txt"
+      ],
+      "long_code_files": []
+    },
+    "T06": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T07": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T08": {
+      "long_material": true,
+      "long_docs": [
+        "docs/datatype-json.txt"
+      ],
+      "long_code_files": []
+    },
+    "T09": {
+      "long_material": true,
+      "long_docs": [
+        "docs/warm-standby.txt"
+      ],
+      "long_code_files": []
+    },
+    "T10": {
+      "long_material": true,
+      "long_docs": [
+        "docs/monitoring-stats.txt"
+      ],
+      "long_code_files": []
+    },
+    "T11": {
+      "long_material": true,
+      "long_docs": [
+        "docs/warm-standby.txt"
+      ],
+      "long_code_files": []
+    },
+    "T12": {
+      "long_material": true,
+      "long_docs": [
+        "docs/runtime-config-resource.txt"
+      ],
+      "long_code_files": []
+    },
+    "T13": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T14": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T15": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T16": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T17": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/tcop/postgres.c"
+      ]
+    },
+    "T18": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/storage/buffer/bufmgr.c"
+      ]
+    },
+    "T19": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T20": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T21": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/utils/sort/tuplesort.c"
+      ]
+    },
+    "T22": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/executor/nodeHash.c"
+      ]
+    },
+    "T23": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/storage/ipc/procarray.c"
+      ]
+    },
+    "T24": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T25": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": []
+    },
+    "T26": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/storage/lmgr/lock.c"
+      ]
+    },
+    "T27": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/access/transam/xact.c"
+      ]
+    },
+    "T28": {
+      "long_material": true,
+      "long_docs": [
+        "docs/sql-createindex.txt"
+      ],
+      "long_code_files": [
+        "code/src/backend/commands/indexcmds.c"
+      ]
+    },
+    "T29": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/access/transam/xact.c",
+        "code/src/backend/storage/lmgr/lock.c"
+      ]
+    },
+    "T30": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/executor/nodeModifyTable.c"
+      ]
+    },
+    "T31": {
+      "long_material": true,
+      "long_docs": [
+        "docs/ddl-constraints.txt"
+      ],
+      "long_code_files": [
+        "code/src/backend/executor/execExpr.c",
+        "code/src/backend/executor/execMain.c"
+      ]
+    },
+    "T32": {
+      "long_material": true,
+      "long_docs": [
+        "docs/ddl-constraints.txt"
+      ],
+      "long_code_files": [
+        "code/src/backend/access/nbtree/nbtinsert.c",
+        "code/src/backend/access/nbtree/nbtutils.c"
+      ]
+    },
+    "T33": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/catalog/heap.c",
+        "code/src/backend/commands/tablecmds.c"
+      ]
+    },
+    "T34": {
+      "long_material": true,
+      "long_docs": [
+        "docs/runtime-config-client.txt"
+      ],
+      "long_code_files": [
+        "code/src/backend/tcop/postgres.c"
+      ]
+    },
+    "T35": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/access/transam/xact.c"
+      ]
+    },
+    "T36": {
+      "long_material": true,
+      "long_docs": [
+        "docs/warm-standby.txt"
+      ],
+      "long_code_files": [
+        "code/src/backend/access/transam/xact.c"
+      ]
+    }
+  }
+}

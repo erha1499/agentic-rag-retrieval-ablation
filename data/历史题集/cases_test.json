@@ -1,0 +1,1165 @@
+[
+  {
+    "id": "T01",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。已建B-tree索引(x) INCLUDE(y)，查询只取x、y。为什么看到Index Only Scan仍可能出现Heap Fetches？若改成UNIQUE索引，y是否也参与唯一性？",
+    "required_facts": [
+      "索引必须支持index-only且覆盖查询所需列；覆盖只使index-only在物理上可行。",
+      "仍需判断MVCC可见性；对应堆页visibility map的all-visible位未设置时必须访问堆。",
+      "UNIQUE(x) INCLUDE(y)只约束x唯一，y是载荷列不参与唯一性。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/indexes-index-only-scans.txt",
+        "start_line": 18,
+        "end_line": 55,
+        "why": "覆盖与可见性条件"
+      },
+      {
+        "path": "docs/indexes-index-only-scans.txt",
+        "start_line": 72,
+        "end_line": 85,
+        "why": "INCLUDE唯一性语义"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T02",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。部分索引谓词是x < 2。为什么一个规划时参数仍未知的查询WHERE x < $1不能仅凭运行时$1=1就保证使用它？请区分逻辑蕴含、规划时点和规划器证明能力。",
+    "required_facts": [
+      "查询WHERE必须可被识别为蕴含部分索引谓词。",
+      "蕴含匹配发生在规划时而非运行时；未知参数x<$1不能对所有可能取值蕴含x<2。",
+      "规划器仅识别某些简单不等式蕴含，不是通用定理证明器；其余通常要求谓词写法匹配。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/indexes-partial.txt",
+        "start_line": 93,
+        "end_line": 105,
+        "why": "部分索引蕴含及参数限制"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T03",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。大批DELETE后文件没有明显变小，自动清理也在运行。解释普通清理与完整压缩清理对空间、并发和额外磁盘的差别，自动清理会自动执行后者吗？",
+    "required_facts": [
+      "普通VACUUM清除死版本并让空间可复用，通常不返还OS，尾端整页空闲且容易取得排他锁是例外。",
+      "VACUUM FULL通过重写紧凑副本缩小文件并返还空间，需要额外磁盘存放新副本。",
+      "VACUUM FULL持有ACCESS EXCLUSIVE阻塞其他表使用，普通VACUUM可与常见DML并行。",
+      "autovacuum不会执行VACUUM FULL。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/routine-vacuuming.txt",
+        "start_line": 27,
+        "end_line": 33,
+        "why": "并发与锁"
+      },
+      {
+        "path": "docs/routine-vacuuming.txt",
+        "start_line": 39,
+        "end_line": 61,
+        "why": "复用、重写、额外空间及autovacuum"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T04",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。一个非递归、无副作用的SELECT型公用表表达式（不含volatile函数）被同一查询引用两次，外层分别只需要少量行。为何默认可能先算完整结果？如何让外层条件参与优化，代价是什么？",
+    "required_facts": [
+      "无递归且无副作用的CTE可折叠到父查询；默认单次引用折叠，多次引用通常独立物化。",
+      "多次引用物化会妨碍外层条件下推，因为限制某次引用不应改变其他引用。",
+      "NOT MATERIALIZED可强制折叠以便联合优化和条件下推，但可能造成重复计算；MATERIALIZED强制分开计算。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/queries-with.txt",
+        "start_line": 306,
+        "end_line": 324,
+        "why": "默认规则与代价"
+      },
+      {
+        "path": "docs/queries-with.txt",
+        "start_line": 343,
+        "end_line": 370,
+        "why": "双引用例子及昂贵函数重复计算"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T05",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。分区筛选值只有执行时才知道，是否只能扫描所有分区？说明初始化与执行期间的裁剪如何观察，并与使用CHECK约束的排除机制比较。",
+    "required_facts": [
+      "分区裁剪既可规划时也可执行时进行，能处理准备语句参数、子查询或参数化嵌套循环值。",
+      "初始化裁剪的分区不显示为子计划，可从Subplans Removed观察数量。",
+      "实际执行时随相关参数改变重新裁剪，用EXPLAIN ANALYZE的loops或never executed观察。",
+      "constraint exclusion使用CHECK约束且仅规划时执行；分区裁剪使用分区边界。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/ddl-partitioning.txt",
+        "start_line": 647,
+        "end_line": 679,
+        "why": "各阶段裁剪及机制比较"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T06",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。B-tree复合索引(a,b,c)面对WHERE a=5 AND b>=42 AND c<77时，哪些条件缩小索引扫描区间，哪些只过滤索引项？没有a条件是否绝对不能用此索引？",
+    "required_facts": [
+      "前导列a的等值与首个非等值列b的不等式限定扫描区间。",
+      "c<77会在索引内过滤并减少访问表的行，但不缩小扫描过的索引区间。",
+      "无a约束仍原则上能用该索引，但需要扫描整个索引，规划器往往宁愿顺序扫描，不能说绝对不能用。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/indexes-multicolumn.txt",
+        "start_line": 27,
+        "end_line": 37,
+        "why": "B-tree前导列规则与反例"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T07",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。想在每行显示组内按时间排序的最后一个值，直接last_value(v) OVER(PARTITION BY g ORDER BY t)为何常得不到整组最后值？给出覆盖整个分组且保留排序的窗口框架写法，并说明并列排序值的影响。",
+    "required_facts": [
+      "last_value返回窗口框架最后一行的值，而非无条件返回整个分区最后值。",
+      "默认框架从分区起点到当前行最后一个peer，并列ORDER BY值属于peer。",
+      "可显式使用ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING来覆盖整分区并保留ORDER BY；若t不唯一，最后值也可能不唯一，需稳定次序可加唯一排序键。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/functions-window.txt",
+        "start_line": 46,
+        "end_line": 68,
+        "why": "窗口框架和peer定义"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T08",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。判断jsonb包含测试：[1,2,3]是否包含[3,1,1]？[1,2,[1,3]]是否包含[1,3]？数组[\"foo\",\"bar\"]与标量\"bar\"能否互相包含？说明规则，不能把它当成任意深度搜索。",
+    "required_facts": [
+      "数组包含忽略元素顺序并忽略重复，因此[1,2,3]包含[3,1,1]。",
+      "结构必须匹配，[1,2,[1,3]]不包含顶层数组[1,3]，嵌套存在不等于顶层存在。",
+      "数组包含标量是特例，[\"foo\",\"bar\"]包含\"bar\"，反方向标量不包含数组。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/datatype-json.txt",
+        "start_line": 149,
+        "end_line": 196,
+        "why": "完整包含规则与例外"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T09",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。已经启用流复制，能否承诺主库确认提交的数据切换后都存在？比较默认、synchronous_commit=on、remote_write和remote_apply分别等到什么阶段，以及延迟代价。",
+    "required_facts": [
+      "流复制默认异步，主库已提交但未复制的事务可能在故障切换时丢失。",
+      "配置同步备库并使用on时等待同步备库把提交记录刷到持久存储，增加至少网络往返等等待。",
+      "remote_write等待备库写到OS但不要求刷盘，备库OS崩溃保护弱于on。",
+      "remote_apply等待同步备库重放事务并对查询可见。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/warm-standby.txt",
+        "start_line": 292,
+        "end_line": 310,
+        "why": "异步风险与同步等待"
+      },
+      {
+        "path": "docs/warm-standby.txt",
+        "start_line": 325,
+        "end_line": 355,
+        "why": "三个同步提交级别"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T10",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。同一事务里重复查询pg_stat累计统计，数值一直不变，是否说明没有新活动？说明默认缓存、刷新延迟和pg_stat_clear_snapshot()/stats_fetch_consistency的作用。",
+    "required_facts": [
+      "累计统计不是瞬时更新，进程通常在idle前刷到共享内存且不比PGSTAT_MIN_INTERVAL更频繁。",
+      "默认同一事务中已访问累计统计被缓存，重复读静态数值不能证明没有活动。",
+      "pg_stat_clear_snapshot丢弃当前事务快照或缓存；none避免累计统计缓存，snapshot为一致快照增加缓存。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/monitoring-stats.txt",
+        "start_line": 49,
+        "end_line": 74,
+        "why": "累计统计延迟、事务缓存与刷新"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T11",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。备库暂时断开后，主库为什么可能持续保留日志直到pg_wal磁盘耗尽？说明复制槽解决的问题、与仅开启反馈的差别，以及一个限制保留量的配置。",
+    "required_facts": [
+      "复制槽阻止主库移除备库仍需要的WAL，并可在断开时保持防清理保护。",
+      "单独hot_standby_feedback在备库未连接期间不提供相关行清理保护。",
+      "复制槽会让pg_wal积累到磁盘满，可用max_slot_wal_keep_size限制复制槽保留WAL大小；不能把槽理解为无限免费保险。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/warm-standby.txt",
+        "start_line": 213,
+        "end_line": 230,
+        "why": "槽、反馈断开及磁盘风险"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T12",
+    "split": "test",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。只有这些官方文档，没有机器内存、磁盘、并发量、查询和测试数据。请直接给出使我的生产库吞吐最高且保证不OOM的shared_buffers与work_mem唯一精确数值。若证据不足，请明确指出缺什么，并区分文档起点建议与可保证的最优值。",
+    "required_facts": [
+      "仅官方文档无法确定该生产部署的唯一最优配置或保证不OOM，需机器资源、并发/工作负载和实测。",
+      "shared_buffers约25%内存是专用服务器的起点建议而非最优保证，OS缓存也参与。",
+      "work_mem按操作分配且多操作多会话可并发，总内存可多倍于设置值，不能作为整实例总内存上限。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/runtime-config-resource.txt",
+        "start_line": 14,
+        "end_line": 19,
+        "why": "起点建议"
+      },
+      {
+        "path": "docs/runtime-config-resource.txt",
+        "start_line": 92,
+        "end_line": 105,
+        "why": "每操作预算与并发"
+      }
+    ],
+    "expected_action": "insufficient",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T13",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。请追踪AllocSetAlloc：小分配如何复用空闲块，大于allocChunkLimit的请求走哪里？后者malloc失败如何处理，是否无条件返回NULL？",
+    "required_facts": [
+      "超过allocChunkLimit转交AllocSetAllocLarge；小分配经AllocSetFreeIndex查相应freelist，命中后弹出chunk复用。",
+      "大分配验证请求大小后malloc独立块。",
+      "malloc失败调用MemoryContextAllocationFailure；无MCXT_ALLOC_NO_OOM时打印内存上下文统计并抛出out of memory，带该标志才返回NULL。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/mmgr/aset.c",
+        "start_line": 967,
+        "end_line": 1014,
+        "why": "分配分流与空闲链"
+      },
+      {
+        "path": "code/src/backend/utils/mmgr/aset.c",
+        "start_line": 696,
+        "end_line": 717,
+        "why": "大分配调用"
+      },
+      {
+        "path": "code/src/backend/utils/mmgr/mcxt.c",
+        "start_line": 1147,
+        "end_line": 1158,
+        "why": "失败处理标志"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T14",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。choose_custom_plan是否意味着带参数的准备语句在第6次执行时必定改用generic plan？按源码说明前5次策略、强制设置和之后的成本比较。",
+    "required_facts": [
+      "普通需重规划且有参数、无强制设置时，num_custom_plans<5会选择custom。",
+      "plan_cache_mode和cursor_options可强制generic/custom，且无参数或无需重验证等有提前返回。",
+      "之后比较generic_cost与total_custom_cost/num_custom_plans，小于均值选generic否则custom；custom成本计入规划开销，因此第6次不是必定永久改generic。",
+      "generic_cost尚未知（-1）时先尝试建立generic plan并计算真实成本，再重新choose_custom_plan；可能改建custom，并不意味着必定执行这次generic。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/cache/plancache.c",
+        "start_line": 1041,
+        "end_line": 1092,
+        "why": "选择策略"
+      },
+      {
+        "path": "code/src/backend/utils/cache/plancache.c",
+        "start_line": 1241,
+        "end_line": 1248,
+        "why": "成本累计"
+      },
+      {
+        "path": "code/src/backend/utils/cache/plancache.c",
+        "start_line": 1198,
+        "end_line": 1230,
+        "why": "未知generic成本建立后重新决策，可能实际执行custom"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T15",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。pg_strtoint32_safe如何区分格式错误与超出32位范围？说明常见十进制快路径、慢路径支持的格式，以及escontext对报错的影响。",
+    "required_facts": [
+      "先尝试无下划线的普通十进制快路径，不适合时回退慢路径支持空白、符号、十六进制/八进制/二进制前缀和下划线。",
+      "十进制下划线必须位于数字之间，拒绝起始/结尾和无后续数字情况，并拒绝非空白尾随字符。",
+      "格式错误使用ERRCODE_INVALID_TEXT_REPRESENTATION，溢出使用ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE。",
+      "ErrorSaveContext可接收错误而非直接抛出；pg_strtoint32包装器传NULL，不能把_safe理解为无条件静默成功。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/adt/numutils.c",
+        "start_line": 365,
+        "end_line": 402,
+        "why": "入口与快慢路径"
+      },
+      {
+        "path": "code/src/backend/utils/adt/numutils.c",
+        "start_line": 570,
+        "end_line": 619,
+        "why": "十进制格式验证及错误分类"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T16",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。tuplestore_puttuple_common在TSS_INMEM状态下如何决定转存临时文件？请沿函数调用说明状态切换及已有元组如何写出，不能只说“超过work_mem会落盘”。",
+    "required_facts": [
+      "插入元组后，只有数组仍有空间且未LACKMEM才继续留内存；数组增长失败或内存不足都会触发转存。",
+      "调用PrepareTempTablespaces并以store的ResourceOwner建立BufFileCreateTemp临时文件。",
+      "设置backward标志并转TSS_WRITEFILE，然后dumptuples遍历内存元组调用WRITETUP，记录读指针文件位置并清空内存计数。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/sort/tuplestore.c",
+        "start_line": 790,
+        "end_line": 832,
+        "why": "触发条件与状态转换"
+      },
+      {
+        "path": "code/src/backend/utils/sort/tuplestore.c",
+        "start_line": 1206,
+        "end_line": 1226,
+        "why": "已有元组写出与指针"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T17",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。check_stack_depth如何在递归太深时保护后端？它依赖何种距离计算、保护条件，错误提示为什么还要求检查平台限制？",
+    "required_facts": [
+      "check_stack_depth调用stack_is_too_deep，为真时抛ERRCODE_STATEMENT_TOO_COMPLEX和stack depth limit exceeded。",
+      "以stack_base_ptr与当前局部变量地址距离的绝对值估计深度，超过max_stack_depth_bytes且base非NULL才判太深。",
+      "目的是在硬件/OS栈溢出导致不可恢复SIGSEGV前报错，不能只无限增加max_stack_depth，需确保平台栈限制足够。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/tcop/postgres.c",
+        "start_line": 3547,
+        "end_line": 3600,
+        "why": "检查调用、计算、阈值和平台风险"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T18",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。在缓冲区读入路径中定位PageIsVerifiedExtended失败后的处理。默认会继续使用损坏页面吗？READ_BUFFERS_ZERO_ON_ERROR或zero_damaged_pages如何改变行为，是否属于自动修复？",
+    "required_facts": [
+      "页面验证失败默认抛出DATA_CORRUPTED ERROR，不会正常继续使用损坏页。",
+      "若READ_BUFFERS_ZERO_ON_ERROR或zero_damaged_pages开启则发WARNING并memset整个BLCKSZ为0。",
+      "清零会丢失原页内容，不能等同恢复或修复有效数据；不能把显式清零分支描述为默认行为。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/storage/buffer/bufmgr.c",
+        "start_line": 1524,
+        "end_line": 1543,
+        "why": "验证失败与有条件清零"
+      },
+      {
+        "path": "code/src/backend/storage/buffer/bufmgr.c",
+        "start_line": 139,
+        "end_line": 139,
+        "why": "zero_damaged_pages默认关闭"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T19",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。系统目录里查询一个不存在的键，后续重复查询为何可能不再访问底层目录？找到这类“未找到缓存”的实现，解释引导模式的例外以及失效时为何有时仅标死而非立即释放。",
+    "required_facts": [
+      "SearchCatCacheMiss查不到元组时建立negative cache entry，正常命中负条目直接返回NULL。",
+      "bootstrap不建负条目，因为失效机制尚未工作，后来创建元组时可能无法清除旧负结果。",
+      "CatCacheInvalidate对仍被引用的条目或其列表标dead，无引用则CatCacheRemoveCTup立即移除，避免悬挂引用。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/cache/catcache.c",
+        "start_line": 1382,
+        "end_line": 1414,
+        "why": "命中与miss路径"
+      },
+      {
+        "path": "code/src/backend/utils/cache/catcache.c",
+        "start_line": 1517,
+        "end_line": 1547,
+        "why": "负缓存及bootstrap例外"
+      },
+      {
+        "path": "code/src/backend/utils/cache/catcache.c",
+        "start_line": 638,
+        "end_line": 656,
+        "why": "失效时引用保护"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T20",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。一个后端等待重量级锁时，是否每进入等待就立即遍历完整死锁图？定位正常运行时的定时检查调用链，并说明确认硬死锁后怎样让其他等待者继续。",
+    "required_facts": [
+      "ProcSleep在非热备等待时启动DEADLOCK_TIMEOUT，延迟昂贵死锁检查；LockTimeout可同时启用。",
+      "超时处理器CheckDeadLockAlert仅置got_deadlock_timeout并SetLatch；ProcSleep醒来检查标志后调用CheckDeadLock，再调用DeadLockCheck(MyProc)，未发现硬死锁不直接终止事务。",
+      "硬死锁时从等待队列移除自身并设置等待错误，ProcSleep随后报错/事务中止释放所持锁以唤醒其他进程。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/storage/lmgr/proc.c",
+        "start_line": 1241,
+        "end_line": 1269,
+        "why": "延迟检查原因和计时器"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/proc.c",
+        "start_line": 1744,
+        "end_line": 1754,
+        "why": "超时检查入口"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/proc.c",
+        "start_line": 1790,
+        "end_line": 1818,
+        "why": "硬死锁处理"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/proc.c",
+        "start_line": 1835,
+        "end_line": 1855,
+        "why": "超时信号处理器只置标志并唤醒"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/proc.c",
+        "start_line": 1355,
+        "end_line": 1364,
+        "why": "ProcSleep消费超时标志后调用死锁检查"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T21",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。单进程执行带有行数界限的排序时，源码如何在普通内存排序、保留前N项的堆和外部归并之间选择？为何有界排序也不能承诺始终不超过work_mem？",
+    "required_facts": [
+      "tuplesort输入数超过两倍bound，或超过bound且LACKMEM时，bounded排序转make_bounded_heap。",
+      "若仍有内存和数组空间继续积累，否则非有界/未转有界的路径inittapes并dumptuples转外部排序。",
+      "若所有输入在内存中收齐且仍是TSS_INITIAL，单进程performsort调用tuplesort_sort_memtuples并转TSS_SORTEDINMEM。",
+      "有界堆对后续元组比较后丢弃或替换堆顶，减少保存量。",
+      "一旦进入TSS_BOUNDED便尽量一直完成，后续元组更大时仍可能显著超过workMem，源码明确承认该限制。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/sort/tuplesort.c",
+        "start_line": 1249,
+        "end_line": 1293,
+        "why": "算法切换及内存限制"
+      },
+      {
+        "path": "code/src/backend/utils/sort/tuplesort.c",
+        "start_line": 1296,
+        "end_line": 1317,
+        "why": "有界堆输入处理"
+      },
+      {
+        "path": "code/src/backend/utils/sort/tuplesort.c",
+        "start_line": 1397,
+        "end_line": 1408,
+        "why": "全量内存输入最终快排"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T22",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。单进程哈希连接内存不足时，增加batch为何不一定能解决？定位增批函数，解释重新分流以及相同hash值过多时停止增长的条件。",
+    "required_facts": [
+      "ExecHashIncreaseNumBatches在growEnabled且不会溢出时将nbatch翻倍并扩展batch文件数组。",
+      "重新计算每个已有元组的bucket/batch，属于当前批的保留，否则ExecHashJoinSaveTuple写入后续batch文件并减少spaceUsed。",
+      "若一次增批移走0个或全部元组，停止进一步增长growEnabled=false，因为相同hash值集合无法再拆分；不能保证严格维持内存上限。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/executor/nodeHash.c",
+        "start_line": 911,
+        "end_line": 961,
+        "why": "增批入口与翻倍"
+      },
+      {
+        "path": "code/src/backend/executor/nodeHash.c",
+        "start_line": 1010,
+        "end_line": 1036,
+        "why": "重新分流写出"
+      },
+      {
+        "path": "code/src/backend/executor/nodeHash.c",
+        "start_line": 1056,
+        "end_line": 1071,
+        "why": "倾斜时停止增长"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T23",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。在正常主库模式下，快照保存的子事务列表溢出后，判断某个事务在快照中是否仍进行中会怎样退化？请连接快照生成和查询函数，说明范围快判与父事务查找。",
+    "required_facts": [
+      "GetSnapshotData观察后端子事务缓存overflowed时设置snapshot的suboverflowed，不再依赖完整子事务列表。",
+      "XidInMVCCSnapshot先用xmin/xmax范围判断：小于xmin不是快照中进行中，大于等于xmax视为进行中。",
+      "未溢出时可搜subxip再搜顶层xip；溢出时通过SubTransGetTopmostTransaction查顶层XID，再查xip，故需额外pg_subtrans工作。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/storage/ipc/procarray.c",
+        "start_line": 2343,
+        "end_line": 2363,
+        "why": "快照生成中识别溢出"
+      },
+      {
+        "path": "code/src/backend/utils/time/snapmgr.c",
+        "start_line": 1856,
+        "end_line": 1912,
+        "why": "判断路径与父事务转换"
+      },
+      {
+        "path": "code/src/backend/storage/ipc/procarray.c",
+        "start_line": 2501,
+        "end_line": 2508,
+        "why": "局部溢出标志写入snapshot字段"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T24",
+    "split": "test",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。我只提供一句“昨天查询失败，报out of memory”，没有完整错误详情、SQL、日志、core或内存统计。仅凭当前源码，请确定当时唯一触发的函数、申请字节数和根因，并给出修复值；若不能确定，请区分能从源码确定的报错机制和缺失的现场证据。",
+    "required_facts": [
+      "仅错误短语无法唯一定位历史调用点、请求字节数或根因，也无法计算确定修复值。",
+      "MemoryContextAllocationFailure会输出内存上下文统计，并在DETAIL给出请求size和context名称，这些现场信息本题缺失。",
+      "应索取完整错误/DETAIL、SQL或调用栈、配置并发与系统内存证据；不得把一个源码分支说成已发生的生产事实。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/mmgr/mcxt.c",
+        "start_line": 1147,
+        "end_line": 1158,
+        "why": "源码能提供的详情与异常处理"
+      }
+    ],
+    "expected_action": "insufficient",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审；正式题不可用于调参。"
+  },
+  {
+    "id": "T25",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。启用RLS后，表所有者、BYPASSRLS角色和超级用户是否一律被策略过滤？FORCE ROW LEVEL SECURITY及row_security=off会怎样？请对照check_enable_rls分支核验，不要把off当成普通用户绕过权限的开关。",
+    "required_facts": [
+      "文档规定超级用户和BYPASSRLS角色绕过RLS，表所有者通常绕过但可用FORCE使其受RLS。",
+      "check_enable_rls先检查has_bypassrls_privilege，超级用户也视为具备此权限；所有者未FORCE或处于InNoForceRLSOperation时返回RLS_NONE_ENV。",
+      "对本应适用RLS的用户，row_security=off且noError为false时源码抛权限错误，而非让其自由访问全部行。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/ddl-rowsecurity.txt",
+        "start_line": 7,
+        "end_line": 30,
+        "why": "RLS默认及特权语义"
+      },
+      {
+        "path": "code/src/backend/utils/misc/rls.c",
+        "start_line": 76,
+        "end_line": 129,
+        "why": "绕过、FORCE和off报错分支"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T26",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。比较pg_advisory_lock(bigint)与pg_advisory_xact_lock(bigint)：事务回滚后是否还持有？会话级重复加锁如何释放？请用lockfuncs.c传给LockAcquire的参数核验作用域。",
+    "required_facts": [
+      "会话级咨询锁持续到显式解锁或会话结束，事务回滚不自动释放；重复获取需相同次数解锁。",
+      "事务级咨询锁在事务结束时自动释放，不能显式单独解锁。",
+      "两个int8入口都构造同类锁tag并以ExclusiveLock调用LockAcquire，但sessionLock参数分别为true与false，dontWait均为false。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/explicit-locking.txt",
+        "start_line": 255,
+        "end_line": 267,
+        "why": "两个作用域与重入计数"
+      },
+      {
+        "path": "code/src/backend/utils/adt/lockfuncs.c",
+        "start_line": 622,
+        "end_line": 652,
+        "why": "两个SQL函数对应LockAcquire参数"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/lock.c",
+        "start_line": 733,
+        "end_line": 742,
+        "why": "sessionLock与dontWait参数语义"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T27",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。发送端在一个事务内两次NOTIFY同一channel和相同payload，监听端又处于长事务中，为什么可能只看到一次且迟迟不到客户端？结合提交路径解释，NOTIFY执行本身是否立即发送。",
+    "required_facts": [
+      "发送端事务只有提交后才交付，回滚不交付；监听端若在事务中，等事务结束才向客户端交付。",
+      "同事务内相同channel+payload通知会折叠为一次，不同payload或不同事务通知不能随意合并。",
+      "Async_Notify先保存pending消息并经AsyncExistsPendingNotify去重；PreCommit_Notify将消息入队，AtCommit_Notify调用SignalBackends，实际发送与事务提交有关。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-notify.txt",
+        "start_line": 37,
+        "end_line": 55,
+        "why": "提交延迟和去重规则"
+      },
+      {
+        "path": "code/src/backend/commands/async.c",
+        "start_line": 582,
+        "end_line": 588,
+        "why": "pending而非立即发出"
+      },
+      {
+        "path": "code/src/backend/commands/async.c",
+        "start_line": 663,
+        "end_line": 675,
+        "why": "实际重复检测"
+      },
+      {
+        "path": "code/src/backend/commands/async.c",
+        "start_line": 1008,
+        "end_line": 1014,
+        "why": "提交后信号与PreCommit队列"
+      },
+      {
+        "path": "code/src/backend/commands/async.c",
+        "start_line": 930,
+        "end_line": 947,
+        "why": "PreCommit_Notify实际调用asyncQueueAddEntries入队"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 2274,
+        "end_line": 2279,
+        "why": "提交准备阶段实际调用PreCommit_Notify"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 2400,
+        "end_line": 2405,
+        "why": "提交完成后实际调用AtCommit_Notify"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T28",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。为何在线建索引仍可能长时间等待，不能把“不挡写”理解成“单次无等待扫描”？对照CREATE INDEX CONCURRENTLY文档与源码说明两次扫描、旧快照等待和最后可用标记；能放BEGIN里吗？",
+    "required_facts": [
+      "CONCURRENTLY允许普通写入继续，但比普通建索引多工作，分事务执行两次表扫描且需等待相关已有事务。",
+      "源码在各阶段WaitForLockers，调用index_concurrently_build完成构建，再validate_index扫描验证并补缺失项。",
+      "随后WaitForOlderSnapshots(limitXmin)等旧快照结束，再以INDEX_CREATE_SET_VALID标记有效。",
+      "CREATE INDEX CONCURRENTLY不能在事务块内执行。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-createindex.txt",
+        "start_line": 266,
+        "end_line": 282,
+        "why": "两次扫描和等待语义"
+      },
+      {
+        "path": "docs/sql-createindex.txt",
+        "start_line": 310,
+        "end_line": 313,
+        "why": "事务块限制"
+      },
+      {
+        "path": "code/src/backend/commands/indexcmds.c",
+        "start_line": 1654,
+        "end_line": 1669,
+        "why": "第一阶段等待"
+      },
+      {
+        "path": "code/src/backend/commands/indexcmds.c",
+        "start_line": 1689,
+        "end_line": 1693,
+        "why": "构建调用"
+      },
+      {
+        "path": "code/src/backend/commands/indexcmds.c",
+        "start_line": 1709,
+        "end_line": 1739,
+        "why": "第二阶段等待及验证"
+      },
+      {
+        "path": "code/src/backend/commands/indexcmds.c",
+        "start_line": 1777,
+        "end_line": 1784,
+        "why": "旧快照及有效标记"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T29",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。把事务PREPARE后原会话退出，锁是否因此释放？请结合官方两阶段提交语义和PrepareTransaction/PostPrepare_Locks调用解释锁的归属变化，以及长时间不结案的影响。",
+    "required_facts": [
+      "PREPARE后事务与当前会话脱离并保存状态，可由任意会话COMMIT PREPARED或ROLLBACK PREPARED。",
+      "准备事务仍持有其锁，不会因为原会话不再有活动事务而释放。",
+      "PrepareTransaction在EndPrepare后调用PostPrepare_Locks，再清理自身ProcArray事务状态；PostPrepare_Locks通过TwoPhaseGetDummyProc把锁转给准备事务的dummy PGPROC。",
+      "长期准备会阻碍VACUUM回收并带来事务ID回卷风险，应尽快由外部事务管理器结案。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-prepare-transaction.txt",
+        "start_line": 12,
+        "end_line": 23,
+        "why": "会话脱离及其他会话结案"
+      },
+      {
+        "path": "docs/sql-prepare-transaction.txt",
+        "start_line": 58,
+        "end_line": 68,
+        "why": "保锁和回收风险"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 2622,
+        "end_line": 2649,
+        "why": "prepare调用顺序"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/lock.c",
+        "start_line": 3390,
+        "end_line": 3414,
+        "why": "目标dummy进程和转移"
+      },
+      {
+        "path": "code/src/backend/storage/lmgr/lock.c",
+        "start_line": 3532,
+        "end_line": 3558,
+        "why": "proclock改为dummy进程并更新哈希和链表"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T30",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。应用先SELECT判断不存在再INSERT会竞争；ON CONFLICT DO UPDATE则提供什么并发语义？请沿执行器解释冲突预检查为何不充分、推测插入怎样收尾以及发现新冲突怎样重试。",
+    "required_facts": [
+      "文档保证在无独立错误条件下ON CONFLICT DO UPDATE原子地得到INSERT或UPDATE结果，即使高并发。",
+      "ExecInsert先ExecCheckIndexConstraints作不保证最终无冲突的预检查，因为此时未持锁；发现现存冲突走ExecOnConflictUpdate。",
+      "无预冲突时取得SpeculativeInsertionLock，table_tuple_insert_speculative写入，再ExecInsertIndexTuples检测索引冲突，以!specConflict完成或取消推测元组并释放锁。",
+      "若specConflict为真则goto vlock重新检查，不能把预检查等同消除竞争。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-insert.txt",
+        "start_line": 154,
+        "end_line": 170,
+        "why": "UPSERT语义"
+      },
+      {
+        "path": "code/src/backend/executor/nodeModifyTable.c",
+        "start_line": 1027,
+        "end_line": 1059,
+        "why": "不决定性预检查和更新"
+      },
+      {
+        "path": "code/src/backend/executor/nodeModifyTable.c",
+        "start_line": 1088,
+        "end_line": 1131,
+        "why": "推测插入、完成和重试"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T31",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。CHECK(price > 0)是否足以禁止NULL价格？请同时解释官方约束规则和执行器为何调用ExecCheck而非普通过滤判断。若既要正值又要非空，应补什么约束？",
+    "required_facts": [
+      "CHECK表达式结果为true或NULL均通过，因此CHECK(price>0)不阻止NULL。",
+      "需要额外NOT NULL（或明确非空检查），同时保留正值检查。",
+      "ExecRelCheck调用ExecCheck且源码注释明确SQL NULL不算失败；ExecCheck在表达式isnull时返回true，非空时才取布尔结果。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/ddl-constraints.txt",
+        "start_line": 105,
+        "end_line": 109,
+        "why": "NULL通过CHECK"
+      },
+      {
+        "path": "docs/ddl-constraints.txt",
+        "start_line": 150,
+        "end_line": 161,
+        "why": "NOT NULL及正值组合"
+      },
+      {
+        "path": "code/src/backend/executor/execMain.c",
+        "start_line": 1768,
+        "end_line": 1779,
+        "why": "执行器检查调用"
+      },
+      {
+        "path": "code/src/backend/executor/execExpr.c",
+        "start_line": 837,
+        "end_line": 864,
+        "why": "NULL通过的实际实现"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T32",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。“唯一索引里NULL总不相等，所以永远不检查NULL冲突”这句话对17.0完整吗？解释默认与NULLS NOT DISTINCT，再沿B-tree构造插入键到唯一性检查说明差异。",
+    "required_facts": [
+      "默认唯一约束把NULL视为不同，允许多行NULL；NULLS NOT DISTINCT可改为NULL也按相等处理。",
+      "_bt_doinsert通过_bt_mkscankey构造插入扫描键，普通anynullkeys为真时跳过checkingunique。",
+      "_bt_mkscankey在indnullsnotdistinct时强制anynullkeys=false，确保完整唯一性检查，不会沿默认NULL跳过路径。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/ddl-constraints.txt",
+        "start_line": 237,
+        "end_line": 260,
+        "why": "NULL默认与显式模式"
+      },
+      {
+        "path": "code/src/backend/access/nbtree/nbtinsert.c",
+        "start_line": 110,
+        "end_line": 136,
+        "why": "扫描键及默认跳过"
+      },
+      {
+        "path": "code/src/backend/access/nbtree/nbtutils.c",
+        "start_line": 202,
+        "end_line": 212,
+        "why": "NOT DISTINCT改变标志"
+      },
+      {
+        "path": "code/src/backend/access/nbtree/nbtinsert.c",
+        "start_line": 205,
+        "end_line": 211,
+        "why": "checkingunique真实调用_bt_check_unique"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T33",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。大表新增带常量默认值的普通列为何可以很快，而clock_timestamp()默认值可能要逐行处理？请联系文档与ADD COLUMN源码，说明missing value优化被允许/禁用及最终重写判定，不能说所有DEFAULT都免重写。",
+    "required_facts": [
+      "官方说明常量默认无需ALTER时更新每行，默认按缺失属性返回并在将来重写应用；volatile默认需每行求值。",
+      "ATExecAddColumn尝试把默认存于堆外，设置missingMode并调用AddRelationNewConstraints；后者发现volatile则关闭missingMode。",
+      "StoreAttrDefault在add_column_mode且普通非generated列情况下求值缺失默认并存atthasmissing/attmissingval。",
+      "若missingMode未成功，ADD COLUMN设置AT_REWRITE_DEFAULT_VAL走重写，不能一概认为所有默认都快速。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/ddl-alter.txt",
+        "start_line": 38,
+        "end_line": 51,
+        "why": "常量与volatile默认"
+      },
+      {
+        "path": "code/src/backend/commands/tablecmds.c",
+        "start_line": 7190,
+        "end_line": 7214,
+        "why": "missingMode和重写标记"
+      },
+      {
+        "path": "code/src/backend/catalog/heap.c",
+        "start_line": 2331,
+        "end_line": 2337,
+        "why": "volatile禁用优化"
+      },
+      {
+        "path": "code/src/backend/catalog/pg_attrdef.c",
+        "start_line": 123,
+        "end_line": 158,
+        "why": "缺失值求值与目录存储"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T34",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。某语句设置statement_timeout=5s、lock_timeout=10s。锁等待能等满10s吗？两种超时各覆盖什么；若两个超时信号都已触发，后端怎样选择最终错误？请对照文档与源码。",
+    "required_facts": [
+      "statement_timeout涵盖整个语句从到达到完成的时间，lock_timeout仅针对每次锁获取等待。",
+      "非零statement_timeout短于lock_timeout时语句先超时，不能因此等满10秒锁等待。",
+      "ProcessInterrupts同时读取并清除两个indicator；都触发时报告较早完成的timeout，完全同时时偏向lock timeout，二者分别抛lock timeout或statement timeout错误。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/runtime-config-client.txt",
+        "start_line": 187,
+        "end_line": 197,
+        "why": "语句超时范围"
+      },
+      {
+        "path": "docs/runtime-config-client.txt",
+        "start_line": 217,
+        "end_line": 228,
+        "why": "锁等待范围和大小关系"
+      },
+      {
+        "path": "code/src/backend/tcop/postgres.c",
+        "start_line": 3371,
+        "end_line": 3407,
+        "why": "双超时冲突选择"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T35",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。事务在保存点之后新取得表锁，ROLLBACK TO后会一直持到顶层事务结束吗？如果只是RELEASE SAVEPOINT而非回滚又怎样？请把文档规则连接到子事务资源所有者释放/转移的源码。",
+    "required_facts": [
+      "保存点后取得的锁在回滚到该保存点时立即释放，保存点前已持有的锁不因此释放。",
+      "子事务成功提交/RELEASE时锁不释放，而转给父资源所有者并持续到后续事务结束等正常边界。",
+      "AbortSubTransaction以isCommit=false、isTopLevel=false执行RESOURCE_RELEASE_LOCKS；resowner对应分支调用LockReleaseCurrentOwner，而提交分支调用LockReassignCurrentOwner。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/explicit-locking.txt",
+        "start_line": 96,
+        "end_line": 102,
+        "why": "保存点回滚锁语义"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 5273,
+        "end_line": 5288,
+        "why": "子事务abort释放阶段"
+      },
+      {
+        "path": "code/src/backend/utils/resowner/resowner.c",
+        "start_line": 744,
+        "end_line": 774,
+        "why": "资源所有者提交转移/中止释放"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 5117,
+        "end_line": 5125,
+        "why": "子事务提交以true,false释放阶段转交父资源所有者"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  },
+  {
+    "id": "T36",
+    "split": "test",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。仅有当前文档和源码，没有我的硬件、负载、WAL统计、同步备库设置或压测。请断言“换NVMe后COMMIT的P99从20ms下降到多少ms，并保证一定更快”。若不能，说明可核验的提交路径和还缺的证据，不要伪造实测数字。",
+    "required_facts": [
+      "静态文档源码不能推断此部署更换硬件后的精确P99或保证一定更快，需要当前配置、工作负载和前后对照实测。",
+      "提交路径在相应wrote_xlog/markXidCommitted/synchronous_commit条件下XLogFlush，且可能调用SyncRepWaitForLSN等待同步复制。",
+      "远端确认至少带来网络往返等等待，NVMe不自动消除网络、备库等瓶颈；需实际WAL/IO/同步等待观测来区分。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/warm-standby.txt",
+        "start_line": 303,
+        "end_line": 310,
+        "why": "远端确认与网络等待"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 1477,
+        "end_line": 1481,
+        "why": "有条件WAL刷盘"
+      },
+      {
+        "path": "code/src/backend/access/transam/xact.c",
+        "start_line": 1526,
+        "end_line": 1536,
+        "why": "有条件同步复制等待"
+      }
+    ],
+    "expected_action": "insufficient",
+    "difficulty": "semantic",
+    "notes": "必须同时核验文档和对应源码；金标准仅供评审。"
+  }
+]

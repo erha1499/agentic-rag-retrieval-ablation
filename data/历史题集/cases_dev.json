@@ -1,0 +1,202 @@
+[
+  {
+    "id": "D01",
+    "split": "dev",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。EXPLAIN ANALYZE 中某内层节点显示 actual time=0.010..0.030 rows=2 loops=10。应如何解释 rows、时间与 loops？cost 能直接当毫秒吗？",
+    "required_facts": [
+      "loops=10表示节点执行10次，actual time和rows是每次执行的平均值。",
+      "按显示的每次完成时间0.030乘10，节点累计执行时间约0.300毫秒；累计输出行数约20。",
+      "actual time单位是毫秒，cost是由规划器成本参数定义的任意单位，不能直接当毫秒。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/using-explain.txt",
+        "start_line": 44,
+        "end_line": 63,
+        "why": "成本单位和包含范围"
+      },
+      {
+        "path": "docs/using-explain.txt",
+        "start_line": 463,
+        "end_line": 473,
+        "why": "实际时间与loops平均值"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审，不得传入被测Agent。"
+  },
+  {
+    "id": "D02",
+    "split": "dev",
+    "kind": "doc",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。一个可重复读事务已经建立快照，随后另一事务修改同一目标行并提交。前者再尝试更新该行会怎样？应用只重试这条UPDATE是否足够？请说明快照时点和重试边界。",
+    "required_facts": [
+      "快照取自事务内第一个非事务控制语句开始，而不是每条语句开始。",
+      "若另一更新者提交且确实修改或删除该行，可重复读事务因并发更新发生序列化失败。",
+      "应用应中止并从头重试整个事务；若另一更新者回滚，可继续使用原目标行。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/transaction-iso.txt",
+        "start_line": 166,
+        "end_line": 192,
+        "why": "快照、并发更新和整个事务重试规则"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审，不得传入被测Agent。"
+  },
+  {
+    "id": "D03",
+    "split": "dev",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。在执行器函数 ExecLimit 中，普通 LIMIT/OFFSET 是如何跳过行和终止取行的？说明 LIMIT 0 与达到普通LIMIT上限时是否继续调用子计划。",
+    "required_facts": [
+      "首次调用经recompute_limits计算运行时LIMIT/OFFSET，再进入LIMIT_RESCAN状态。",
+      "LIMIT_RESCAN中count<=0且有上限时进入LIMIT_EMPTY并返回NULL，不读取子计划。",
+      "否则反复ExecProcNode读取子计划，直到position大于offset，才返回窗口内第一行。",
+      "普通LIMIT达到count后进入LIMIT_WINDOWEND并返回NULL，不再推进子计划。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/executor/nodeLimit.c",
+        "start_line": 61,
+        "end_line": 124,
+        "why": "初始计算、空窗口和OFFSET推进"
+      },
+      {
+        "path": "code/src/backend/executor/nodeLimit.c",
+        "start_line": 134,
+        "end_line": 164,
+        "why": "普通LIMIT上限终止"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "exact",
+    "notes": "金标准仅供评审，不得传入被测Agent。"
+  },
+  {
+    "id": "D04",
+    "split": "dev",
+    "kind": "code",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。定位堆表更新选择HOT的源码。为什么“没改普通索引列”仍不能保证一次更新完全不写任何索引？请说明页面条件和汇总索引分支。",
+    "required_facts": [
+      "heap_update要求新旧元组在同一缓冲页面，且modified_attrs与HOT阻塞索引属性集合不相交，才选择HOT。",
+      "HOT阻塞属性与汇总索引属性分别由RelationGetIndexAttrBitmap读取。",
+      "即使选择HOT，若修改了汇总索引相关属性，仍设置summarized_update并返回TU_Summarizing；否则HOT返回TU_None，非HOT返回TU_All。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/access/heap/heapam.c",
+        "start_line": 3227,
+        "end_line": 3238,
+        "why": "两类索引属性"
+      },
+      {
+        "path": "code/src/backend/access/heap/heapam.c",
+        "start_line": 3866,
+        "end_line": 3885,
+        "why": "HOT页面和属性条件"
+      },
+      {
+        "path": "code/src/backend/access/heap/heapam.c",
+        "start_line": 4046,
+        "end_line": 4060,
+        "why": "索引更新结果枚举"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "semantic",
+    "notes": "金标准仅供评审，不得传入被测Agent。"
+  },
+  {
+    "id": "D05",
+    "split": "dev",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。有人把TRUNCATE当成无WHERE的DELETE，认为它不会挡普通SELECT，而且会触发ON DELETE触发器。依据文档并沿实际执行路径核验这两个判断。",
+    "required_facts": [
+      "TRUNCATE取得ACCESS EXCLUSIVE表锁，会阻塞其他并发操作，包括普通SELECT。",
+      "TRUNCATE不触发ON DELETE触发器，而触发ON TRUNCATE触发器。",
+      "源码ExecuteTruncate将AccessExclusiveLock传给RangeVarGetRelidExtended，再调用ExecuteTruncateGuts；后者调用ExecBSTruncateTriggers。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-truncate.txt",
+        "start_line": 48,
+        "end_line": 63,
+        "why": "锁与触发器官方语义"
+      },
+      {
+        "path": "code/src/backend/commands/tablecmds.c",
+        "start_line": 1781,
+        "end_line": 1801,
+        "why": "实际取得锁"
+      },
+      {
+        "path": "code/src/backend/commands/tablecmds.c",
+        "start_line": 1872,
+        "end_line": 1873,
+        "why": "调用执行主体"
+      },
+      {
+        "path": "code/src/backend/commands/tablecmds.c",
+        "start_line": 2032,
+        "end_line": 2049,
+        "why": "调用TRUNCATE触发器"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "金标准仅供评审，不得传入被测Agent。"
+  },
+  {
+    "id": "D06",
+    "split": "dev",
+    "kind": "mixed",
+    "question": "请依据本地 PostgreSQL 17.0 语料回答，并给出可核验的文件路径、行号或章节出处。为何递增序列不能充当无缺号流水号？请结合官方保证，沿nextval的实际实现解释事务回滚以及缓存/预写日志对缺号的影响，不要只回答“因为并发”。",
+    "required_facts": [
+      "nextval取得的值不会因调用事务中止而被回收，事务回滚或崩溃均可能造成缺号。",
+      "INSERT ON CONFLICT也可能先调用nextval后发现冲突，因此无崩溃也会有缺号。",
+      "SQL入口nextval_oid调用nextval_internal；实现会在本地仍有缓存时直接递增返回。",
+      "实现使用SEQ_LOG_VALS=32提前记录序列值，源码明确指出崩溃可跳过预记录的值；这与用户配置的CACHE不是同一个常量。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/functions-sequence.txt",
+        "start_line": 39,
+        "end_line": 44,
+        "why": "非无缺号语义"
+      },
+      {
+        "path": "code/src/backend/commands/sequence.c",
+        "start_line": 53,
+        "end_line": 58,
+        "why": "预写32值与崩溃跳号"
+      },
+      {
+        "path": "code/src/backend/commands/sequence.c",
+        "start_line": 614,
+        "end_line": 623,
+        "why": "实际入口调用"
+      },
+      {
+        "path": "code/src/backend/commands/sequence.c",
+        "start_line": 668,
+        "end_line": 676,
+        "why": "缓存快路径"
+      },
+      {
+        "path": "code/src/backend/commands/sequence.c",
+        "start_line": 703,
+        "end_line": 727,
+        "why": "预写日志条件"
+      }
+    ],
+    "expected_action": "answer",
+    "difficulty": "multi",
+    "notes": "金标准仅供评审，不得传入被测Agent。"
+  }
+]

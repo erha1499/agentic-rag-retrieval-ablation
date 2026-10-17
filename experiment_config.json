@@ -1,0 +1,42 @@
+{
+  "model": "qwen-plus-2025-12-01",
+  "enable_thinking": false,
+  "temperature": 0,
+  "embedding_model": "qwen3.7-text-embedding",
+  "embedding_dimensions": 512,
+  "rerank_model": "qwen3.7-text-rerank",
+  "embedding_batch_size": 20,
+  "embedding_transport_encoding": "base64 (float32 values verified identical to float JSON)",
+  "max_model_calls": 16,
+  "max_completion_tokens": 2048,
+  "time_limit_seconds": 600,
+  "development_time_limit_seconds": 300,
+  "budget_cap_cny": 100,
+  "vector_top_k": 30,
+  "keyword_top_k": 30,
+  "rrf_k": 60,
+  "rerank_candidate_count": 30,
+  "rag_return_char_budget": 24000,
+  "arms": {
+    "A": [
+      "grep",
+      "read_file"
+    ],
+    "B": [
+      "grep",
+      "read_file",
+      "rag_search"
+    ]
+  },
+  "corpus": "PostgreSQL 17.0 official manual and handwritten core source",
+  "online_read_file_truncation": false,
+  "formal_questions": 36,
+  "development_questions": 6,
+  "formal_repeats": 1,
+  "primary_metric": "completed_correct_and_evidence_supported / executed_tasks",
+  "semantic_scoring_denominator": "completed_answers_only; missing answers tracked separately",
+  "cost_measurement": "public prices times provider-reported usage; invoice unavailable",
+  "price_source": "https://help.aliyun.com/zh/model-studio/model-pricing",
+  "price_checked_date": "2026-10-17",
+  "formal_concurrent_tasks": 2
+}

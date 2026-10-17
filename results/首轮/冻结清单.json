@@ -1,0 +1,55 @@
+{
+  "created_utc": "2026-10-17T08:53:17.059903+00:00",
+  "formal_tasks": 72,
+  "formal_questions": 36,
+  "formal_repeats": 1,
+  "files": {
+    "build_corpus.py": "7247c5007b92d93a45bd460bc7e5b1fbf0ead3dcb7e3633af2b9080a3a1212db",
+    "qwen_client.py": "c2575f617deee1fc562aa1eb85d7f4b48d605afc34b9e9e1e13a5563f59fee08",
+    "retrieval.py": "320b0abacc52d02664bb3ea3f5a8fdb05fda74d1f3be5bd75885becb9f285ad5",
+    "run_experiment.py": "70151da81ace708e8e34508539972d74600bc46eb64ae21ac19e4dc1b106e1b4",
+    "prepare_review.py": "8268165c0115319ed19fd5ed41f8b7705e0418cc1e3511ddf97901a2e42fb0f4",
+    "summarize.py": "323bd5d292ac698d74aa4f4254476fd38864473cca74a43c4439b4069b8d8379",
+    "audit_completion.py": "84799f3b623e7cf535dd2ef139f9cc3def32d40784f35541a44e6b27740cfd1b",
+    "test_build_corpus.py": "9b5fd691796205750f4ac268c8e46f5a1f3bbb35c80cc5071d76566513891b96",
+    "test_qwen_client.py": "df934d74cc249964f5d48b272f2e89e40b679817cd3f94e26666f056ddf99188",
+    "test_runner.py": "5a35d005b2645470aadd8df2516178650e1027180d5e1c39efe8b0a61e829548",
+    "experiment_config.json": "01d6ae8f9703a550ee4db9b6d77bded479233ae5371d3bae6697bd5f647fd87f",
+    "data/cases_dev.json": "ad8e7e7f3f9de1135e7d34a80aadfe1c556fb92d206feec7ae8a158e7e8cf080",
+    "data/cases_test.json": "eb8a21149e30413eaa6eafa921267a52611e561f45543254f71797812e79c22a",
+    "data/files.jsonl": "33d5692693e9dd3f5b0112f160254f1f5c970128dcb27a715fc5ae08643251fa",
+    "data/chunks.jsonl": "991e80943783daf48c2bf877609bc917c74c9f25a889e3b76d6c03c082417139",
+    "data/corpus_manifest.json": "8c5979aa708c38adf6c02f14b3cb59721fbe9ece5294e9349efe8a593ec926c8",
+    "data/corpus_validation.json": "5c34ff2569c9254e02d70eccbe667b1516b941dfe5e680cb8bb303ced1492795",
+    "data/case_manifest.json": "7e48e315d9ba92a6cce8ee97ad41b63746f5d73a43a47ca8b5c15bf1b48fc963",
+    "data/case_length_strata.json": "58841904ee23bc78596a45bc6dc8c707bc064f8ad1a8c0cf0c5cbc88602e8d17",
+    "data/index/config.json": "af6b887cc1a507eb565175e0837632b210c54ae42ab65c62663406e0d710eac2",
+    "data/index/manifest.json": "fa91b14a272e8040de0dc7ba0c6ae68200423c84ba0d8ebe88cc37eb179755b1",
+    "data/index/vectors.npy": "482dd404b8f635092e67c14bf416d5bdc6627940213d2dfbd0c045cc390a1885",
+    "data/index/keyword.sqlite": "576bc70dde6ff84900e14b3c36d2f4cd5487babc0249a1ae37f06bd722facfbd",
+    "discuss/实验方案.md": "f731d55338348c948d1f4b64aab93636a9afb2b8ff5cf306ff6204976b2f6b7b",
+    "discuss/评分规则.md": "e48fc7e73dc600dedb3df5513f02c01d4b1e6948765c5b773164cf1fc0da2c37"
+  },
+  "development_gate": {
+    "created_utc": "2026-10-17T08:53:17.059202+00:00",
+    "planned_tasks": 12,
+    "completed": 11,
+    "failed": [
+      {
+        "id": "D02",
+        "arm": "B",
+        "status": "error",
+        "error_type": "RuntimeError",
+        "error": "Qwen 请求失败，HTTP None"
+      }
+    ],
+    "successful_rag_pipeline_observed": true,
+    "corpus_vector_shape": [
+      32061,
+      512
+    ],
+    "max_norm_error": 1.1920928955078125e-07,
+    "gate": "接口结构、出处与用量记录已验证；网络失败保留；不以开发题正确率调参或选择正式题"
+  },
+  "note": "正式运行开始前冻结；正式题不因结果调整，失败保留，不为追分重跑。"
+}
