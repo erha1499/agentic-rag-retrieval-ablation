@@ -59,7 +59,7 @@ def price(model, usage):
 
 
 class Client:
-    def __init__(self, root: Path, cap_cny=100):
+    def __init__(self, root: Path, cap_cny=3):
         self.root = Path(root)
         self.cap_cny = float(cap_cny)
         if not math.isfinite(self.cap_cny) or self.cap_cny <= 0:

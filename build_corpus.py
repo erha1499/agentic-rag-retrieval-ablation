@@ -252,6 +252,8 @@ def main():
     if args.self_test:
         print('构建器自检通过')
         return
+    if any((DATA/name).is_symlink() for name in ('raw','corpus','files.jsonl','chunks.jsonl')):
+        raise RuntimeError('共享冻结语料只读；重建须使用独立目录')
     archives = {name: download(name) for name in [SOURCE_NAME, DOCS_NAME]}
     checksum = download(SOURCE_NAME + '.sha256').read_text().split()[0]
     actual = sha256(archives[SOURCE_NAME].read_bytes())

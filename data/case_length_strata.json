@@ -1,0 +1,117 @@
+{
+  "pre_registered_before_formal": true,
+  "definition": "至少一个必要出处来自≥3000英文词的自然文档页或≥3000行（含注释空行）源码文件。英文词统计包括示例和标识符，不代表中文汉字数。",
+  "case_sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a",
+  "by_case": {
+    "N01": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": [],
+      "source_lengths": [
+        {
+          "path": "docs/sql-savepoint.txt",
+          "kind": "doc",
+          "words": 399,
+          "lines": 109,
+          "chars": 2724
+        }
+      ]
+    },
+    "N02": {
+      "long_material": true,
+      "long_docs": [
+        "docs/sql-altertable.txt"
+      ],
+      "long_code_files": [],
+      "source_lengths": [
+        {
+          "path": "docs/sql-altertable.txt",
+          "kind": "doc",
+          "words": 8104,
+          "lines": 974,
+          "chars": 48998
+        }
+      ]
+    },
+    "N03": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/executor/nodeModifyTable.c"
+      ],
+      "source_lengths": [
+        {
+          "path": "code/src/backend/executor/nodeModifyTable.c",
+          "kind": "code",
+          "words": 18227,
+          "lines": 4759,
+          "chars": 154082
+        },
+        {
+          "path": "docs/sql-insert.txt",
+          "kind": "doc",
+          "words": 2986,
+          "lines": 394,
+          "chars": 18825
+        }
+      ]
+    },
+    "N04": {
+      "long_material": true,
+      "long_docs": [],
+      "long_code_files": [
+        "code/src/backend/executor/execMain.c"
+      ],
+      "source_lengths": [
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "kind": "code",
+          "words": 10679,
+          "lines": 3037,
+          "chars": 91783
+        }
+      ]
+    },
+    "N05": {
+      "long_material": false,
+      "long_docs": [],
+      "long_code_files": [],
+      "source_lengths": [
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "kind": "code",
+          "words": 1149,
+          "lines": 291,
+          "chars": 8718
+        }
+      ]
+    },
+    "N06": {
+      "long_material": true,
+      "long_docs": [
+        "docs/sql-select.txt"
+      ],
+      "long_code_files": [],
+      "source_lengths": [
+        {
+          "path": "code/src/backend/executor/nodeLimit.c",
+          "kind": "code",
+          "words": 1699,
+          "lines": 558,
+          "chars": 14086
+        },
+        {
+          "path": "docs/sql-select.txt",
+          "kind": "doc",
+          "words": 10549,
+          "lines": 1175,
+          "chars": 62275
+        }
+      ]
+    }
+  },
+  "counts": {
+    "short": 2,
+    "long": 4
+  }
+}

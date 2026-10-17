@@ -1,0 +1,48 @@
+[
+  {
+    "id": "P01",
+    "split": "dev",
+    "kind": "code",
+    "difficulty": "easy",
+    "scenario": "code_verify",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只核验源码函数 pg_sleep：长时间等待是一次不可中断的休眠吗？请沿循环指出它怎样响应取消信号，并说明被不取消查询的信号提前唤醒后如何避免少等。",
+    "expected_action": "answer",
+    "required_facts": [
+      "pg_sleep 循环通过 WaitLatch 等待并在每轮执行 CHECK_FOR_INTERRUPTS；重要信号可唤醒等待，取消在中断检查中处理，不是一次不可中断休眠。",
+      "先计算 endtime，再按 endtime 减当前时间重算剩余等待；非取消信号提前唤醒后仍继续等待到目标时间。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/adt/misc.c",
+        "start_line": 375,
+        "end_line": 410,
+        "why": "等待设计说明与完整循环"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  },
+  {
+    "id": "P02",
+    "split": "dev",
+    "kind": "doc",
+    "difficulty": "easy",
+    "scenario": "insufficient",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。我没有提供服务器内存、连接池、工作负载或压测结果。请为这台未知生产库给出吞吐最高且保证不耗尽内存的 max_connections 唯一精确值；如果材料不能支持，请明确说明不足，并区分文档默认值与可保证的最优值。",
+    "expected_action": "insufficient",
+    "required_facts": [
+      "仅凭官方手册无法为未知生产负载给出吞吐最优且保证不耗尽内存的唯一 max_connections 值，必须说明缺少部署资源、连接/查询负载和测量证据。",
+      "手册通常默认100并且值受环境影响；增大 max_connections 会增加包括共享内存在内的资源分配，所以默认值不能升级为该部署的最优安全保证。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/runtime-config-connection.txt",
+        "start_line": 25,
+        "end_line": 32,
+        "why": "默认不是部署最优值，连接数影响资源分配"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  }
+]

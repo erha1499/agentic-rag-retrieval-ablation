@@ -1,0 +1,232 @@
+{
+  "created_utc": "2026-10-17T09:30:35.381269+00:00",
+  "status": "passed",
+  "scope": "独立只读核验2道开发题与6道正式题，逐事实对照本地原文；未读任何新旧实验答案或模型运行轨迹，未改题集、manifest、旧项目或冻结语料；未调用付费API。",
+  "reviewed_case_hashes": {
+    "cases_dev.json": "db7a9c98a417edbdc358f4159964717ed210cbac41a0ab46c49b171abf744100",
+    "cases_test.json": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a"
+  },
+  "counts": {
+    "dev": 2,
+    "test": 6,
+    "facts": 20,
+    "evidence_ranges": 19
+  },
+  "mechanical_checks": {
+    "all_paths_and_line_bounds": "passed",
+    "all_19_excerpt_hashes_including_final_newline": "passed",
+    "case_file_hashes_match_manifest": "passed",
+    "ids_unique": "passed",
+    "all_mixed_have_doc_and_code": "passed",
+    "source_length_fields_recomputed": "passed",
+    "long_material_labels_recomputed": "passed"
+  },
+  "formal_distribution": {
+    "kind": {
+      "doc": 2,
+      "code": 2,
+      "mixed": 2
+    },
+    "difficulty": {
+      "easy": 2,
+      "medium": 2,
+      "hard": 2
+    },
+    "scenario": {
+      "small_doc": 1,
+      "large_doc_narrow": 1,
+      "mixed": 2,
+      "code_verify": 2
+    },
+    "long_material": {
+      "short": 2,
+      "long": 4
+    }
+  },
+  "case_reviews": [
+    {
+      "id": "P01",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "WaitLatch与每轮CHECK_FOR_INTERRUPTS及endtime重算均由misc.c:375-410支持。"
+    },
+    {
+      "id": "P02",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "部署缺失由题干限定；手册25-32明确默认通常100且连接数提高资源/共享内存分配。"
+    },
+    {
+      "id": "N01",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "同名点遮蔽、保留与RELEASE后重新可访问由手册19-22、85-89直接支持。"
+    },
+    {
+      "id": "N02",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        },
+        {
+          "index": 3,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "初次扫描跳过但新写入受约束、后续验证扫描/SHARE UPDATE EXCLUSIVE与并发更新条件均有直接证据。"
+    },
+    {
+      "id": "N03",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        },
+        {
+          "index": 3,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "修订移除清理existing的额外评分要求，必要事实仅要求锁→WHERE→提前返回并跳过更新/RETURNING，与题干及源码一致。"
+    },
+    {
+      "id": "N04",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "execMain.c:2363-2370精确支持两列集合、bms_overlap及两种返回，未扩大到所有索引列或所有UPDATE路径。"
+    },
+    {
+      "id": "N05",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        },
+        {
+          "index": 3,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "修订明确正常timeout范围，避免窄化边界；remainingtime名义预算耗尽的表述准确，false只证明未在检查中确认ESRCH，不保证此时目标仍存活。"
+    },
+    {
+      "id": "N06",
+      "facts": [
+        {
+          "index": 1,
+          "supported": true
+        },
+        {
+          "index": 2,
+          "supported": true
+        },
+        {
+          "index": 3,
+          "supported": true
+        }
+      ],
+      "verdict": "passed",
+      "reason": "给定正向、无OFFSET和count=3，第三行30被复制到last_slot，下一次调用进入LIMIT_WINDOWEND_TIES；后续两个30通过相等比较继续返回，40被取出但不返回，状态改WINDOWEND且NULL，合计五行。另核读初始化与后续状态上下文，未误把退向扫描语义当正向规则。"
+    }
+  ],
+  "findings": [
+    {
+      "id": "N05-time",
+      "priority": "required_wording_fix",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "lines": [
+        183,
+        194
+      ],
+      "problem": "第三事实的“等待超过timeout”暗示按实际经过时间判断。实现每轮WaitLatch后无条件remainingtime -= waittime；非取消信号可提前唤醒，且末次等待后未再次kill检查。",
+      "recommendation": "改为“名义等待预算remainingtime耗尽且此前未观察到ESRCH时，发WARNING并返回false；false仅表示在这些检查中未确认消失”。不将精确墙钟保证加入评分。",
+      "resolution": "resolved_before_freeze"
+    },
+    {
+      "id": "N05-range",
+      "priority": "scope_clarification",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "lines": [
+        220,
+        248
+      ],
+      "problem": "SQL参数按PG_GETARG_INT64读取，却赋给int timeout；任意正bigint不保证仍为正int，可能绕过正超时等待或先错误。",
+      "recommendation": "题干明确“timeout取0或不超过INT_MAX的普通正毫秒值，不讨论超大参数转换”，避免意外考察未计划边界。",
+      "resolution": "resolved_before_freeze"
+    },
+    {
+      "id": "N03-scoring",
+      "priority": "nonblocking_scoring_caution",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "lines": [
+        2662,
+        2666
+      ],
+      "problem": "第二必要事实包括清理existing；题干实际要求锁、WHERE、更新/返回顺序，独立复述ExecClearTuple不是新的语义要求。",
+      "recommendation": "准确说明先锁后判断、false提前返回并跳过更新/返回即可视为覆盖核心；不要只因未提清理槽而额外判错。",
+      "resolution": "resolved_before_freeze"
+    }
+  ],
+  "limits": "独立静态来源与金标准审阅通过，不是数据库运行验证；未修改题集或manifest，最终冻结由主代理执行。",
+  "requires_changes": 0,
+  "final_reviewed_at_utc": "2026-10-17T09:31:36.462083+00:00",
+  "previous_reviewed_test_sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a",
+  "final_reviewed_hashes": {
+    "cases_dev.json": "db7a9c98a417edbdc358f4159964717ed210cbac41a0ab46c49b171abf744100",
+    "cases_test.json": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a"
+  },
+  "followup_review_scope": "仅重新核验N03/N05修订文本、8段相关引用原文与哈希、case_manifest文件哈希对应关系；未读取任何新旧runs答案。",
+  "followup_review_result": "三项建议均落实：N03不再把清理existing作为必要事实；N05题干限定0或INT_MAX内正毫秒值；N05正确区分名义等待预算耗尽与实际墙钟/目标现时存活。无新增问题，允许由主代理冻结。"
+}

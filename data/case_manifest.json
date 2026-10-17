@@ -1,0 +1,284 @@
+{
+  "version": "scenario-1.0",
+  "status": "frozen_after_independent_review",
+  "database_version": "PostgreSQL 17.0",
+  "authored_utc": "2026-10-17T09:26:51.851221+00:00",
+  "language": {
+    "question": "zh-CN",
+    "corpus": "en"
+  },
+  "files": {
+    "cases_dev.json": {
+      "count": 2,
+      "sha256": "db7a9c98a417edbdc358f4159964717ed210cbac41a0ab46c49b171abf744100"
+    },
+    "cases_test.json": {
+      "count": 6,
+      "sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a"
+    }
+  },
+  "corpus_manifest_sha256": "8c5979aa708c38adf6c02f14b3cb59721fbe9ece5294e9349efe8a593ec926c8",
+  "split_counts": {
+    "dev": {
+      "code": 1,
+      "doc": 1
+    },
+    "test": {
+      "doc": 2,
+      "mixed": 2,
+      "code": 2
+    }
+  },
+  "formal_difficulty_counts": {
+    "easy": 2,
+    "medium": 2,
+    "hard": 2
+  },
+  "formal_scenario_counts": {
+    "small_doc": 1,
+    "large_doc_narrow": 1,
+    "mixed": 2,
+    "code_verify": 2
+  },
+  "formal_action_counts": {
+    "answer": 6
+  },
+  "authorship_scope": {
+    "all_cases_newly_authored": true,
+    "prior_case_questions_reviewed_for_overlap": true,
+    "agent_runs_or_answers_read": false,
+    "overlap_disclosure": [
+      "N01与历史T35都涉及保存点，但本题仅问同名点遮蔽/恢复，历史题问子事务表锁释放。",
+      "N03与历史T30都涉及ON CONFLICT，但本题仅问WHERE为false的锁与返回，历史题问推测插入及并发重试。",
+      "N06与历史开发D03共用ExecLimit，但本题只问WITH TIES边界同行，历史题问普通LIMIT/OFFSET。"
+    ],
+    "design_limit": "小样本按场景刻意覆盖，不是随机抽样，不能推断跨库普适效果。"
+  },
+  "validation": {
+    "case_count": 8,
+    "unique_ids": true,
+    "source_paths_and_line_ranges_verified": true,
+    "source_hashes_match_approved_corpus": true,
+    "all_mixed_have_doc_and_code": true,
+    "manual_source_readback": true,
+    "evidence_range_count": 19,
+    "evidence_ranges_by_split": {
+      "dev": 2,
+      "test": 17
+    },
+    "required_facts_by_split": {
+      "dev": 4,
+      "test": 16
+    },
+    "independent_static_review_completed": false
+  },
+  "evaluation_rules": [
+    "被测Agent只接收id、kind、question；不得接收difficulty、scenario、required_facts、evidence或notes。",
+    "开发用于核验流程，不将开发表现混入正式通过率；正式前冻结题集、共同提示和预算配置。",
+    "正式每题两组各一次，A/B唯一组间差异是B增加rag_search；两组同一场景选择流程及读取限制。",
+    "正确性、必要事实覆盖和实际引用支持分别评价；strict_pass须全部必要事实正确有据且无重要错误扩写。",
+    "校验代码条件必须使用实际源码；仅凭文档、概念推测或模型记忆不满足源码题证据要求。",
+    "正式不足题为零；P02仅用于开发边界校准，不混入正式六题效果分母。",
+    "预算最多3元，包括本轮开发、正式、查询embedding/rerank和失败重试的公开价保守上界；复用索引，不重复建库。",
+    "预算不足时保留未执行与失败数量，不缩分母、不补选有利题、不把部分执行标为完成。",
+    "本轮共同提示/读取能力与历史不同，不能把首轮与本轮差异单独归因于RAG。"
+  ],
+  "evidence_hashes": [
+    {
+      "case_id": "P01",
+      "path": "code/src/backend/utils/adt/misc.c",
+      "start_line": 375,
+      "end_line": 410,
+      "why": "等待设计说明与完整循环",
+      "excerpt_sha256": "b27c8cbf72ce58cb9f947b3d89310cfa108536b792cb7ccbd79a77c6b61e757e"
+    },
+    {
+      "case_id": "P02",
+      "path": "docs/runtime-config-connection.txt",
+      "start_line": 25,
+      "end_line": 32,
+      "why": "默认不是部署最优值，连接数影响资源分配",
+      "excerpt_sha256": "472422d900c005cb628c485a712c3a4370f0dd42e06db9bed50c9db58c747270"
+    },
+    {
+      "case_id": "N01",
+      "path": "docs/sql-savepoint.txt",
+      "start_line": 19,
+      "end_line": 22,
+      "why": "同名保存点的遮蔽",
+      "excerpt_sha256": "5e53a26abb236ed6592e8239bfd76fae25e330c95d355aa6ba366f201fbb9515"
+    },
+    {
+      "case_id": "N01",
+      "path": "docs/sql-savepoint.txt",
+      "start_line": 85,
+      "end_line": 89,
+      "why": "保留旧同名点，释放新点后恢复可访问",
+      "excerpt_sha256": "eb25b39a709289b3a26df1076841d7153dc143784e7a47d355f288beda1bb499"
+    },
+    {
+      "case_id": "N02",
+      "path": "docs/sql-altertable.txt",
+      "start_line": 261,
+      "end_line": 272,
+      "why": "NOT VALID跳过初始扫描，但后续写入立即受约束",
+      "excerpt_sha256": "5b46b16856acd146e1544942fac4f897d2c514e15982f6a8f162919e7d89853d"
+    },
+    {
+      "case_id": "N02",
+      "path": "docs/sql-altertable.txt",
+      "start_line": 314,
+      "end_line": 320,
+      "why": "后续验证扫描及锁模式",
+      "excerpt_sha256": "05b09a0b0eed5bb61daddc5280cf45c7be2a26b14528bb8b6092bea4a8adb030"
+    },
+    {
+      "case_id": "N02",
+      "path": "docs/sql-altertable.txt",
+      "start_line": 725,
+      "end_line": 736,
+      "why": "验证不阻止普通并发更新的原因",
+      "excerpt_sha256": "d17ab45d37abd969ececd3c4b08bdc75ea7e69299bae23ab13b3fa21ff9316bc"
+    },
+    {
+      "case_id": "N03",
+      "path": "docs/sql-insert.txt",
+      "start_line": 50,
+      "end_line": 55,
+      "why": "未更新的冲突行不返回",
+      "excerpt_sha256": "849d6b5a1ad68d32776936132889c2c9efa578289fdd1f1a2c15ce5af0e0466c"
+    },
+    {
+      "case_id": "N03",
+      "path": "docs/sql-insert.txt",
+      "start_line": 224,
+      "end_line": 228,
+      "why": "所有候选冲突行先锁定，condition最后求值",
+      "excerpt_sha256": "8e893422154422c902d286a9ae466e0034d202bd604c47da9fd471b4e151aae3"
+    },
+    {
+      "case_id": "N03",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "start_line": 2529,
+      "end_line": 2547,
+      "why": "执行器先锁行",
+      "excerpt_sha256": "bb2381c3f450d7c44e85519748fae695dd843c17cf51906c754cf80d4cd7c4f5"
+    },
+    {
+      "case_id": "N03",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "start_line": 2651,
+      "end_line": 2667,
+      "why": "WHERE检查失败直接结束此元组",
+      "excerpt_sha256": "e133e4a3ad9410553d37f6261fb30ae9c2fc264196fa07f4752bf6db8ed1f975"
+    },
+    {
+      "case_id": "N03",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "start_line": 2691,
+      "end_line": 2707,
+      "why": "成功路径才投影和调用ExecUpdate",
+      "excerpt_sha256": "3ac596b0bf566e154999228a5a15460b18d3723ebdf11f453ac69f9df92294d0"
+    },
+    {
+      "case_id": "N04",
+      "path": "code/src/backend/executor/execMain.c",
+      "start_line": 2349,
+      "end_line": 2371,
+      "why": "完整函数及两种返回分支",
+      "excerpt_sha256": "24f81a37aca65f651c4965c12e89f40e95f5bac77e0baa53eaa3d806182a8a88"
+    },
+    {
+      "case_id": "N05",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "start_line": 205,
+      "end_line": 230,
+      "why": "零超时仅发信号，实际SIGTERM调用",
+      "excerpt_sha256": "16ffc1fc7ff660febcd66e4c2b4cb3bfe9ee62609dc67818318765b11004cba3"
+    },
+    {
+      "case_id": "N05",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "start_line": 246,
+      "end_line": 250,
+      "why": "正超时调用等待辅助函数",
+      "excerpt_sha256": "a23b7ee8bcca6887414f128a1d078651f4d4b822874e928f6259c4b01d936781"
+    },
+    {
+      "case_id": "N05",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "start_line": 148,
+      "end_line": 202,
+      "why": "存在性轮询、等待及超时返回",
+      "excerpt_sha256": "a45b931ebbabce01cd223dbf69c24d215e3529c5b57097335ddd33f69c37ab06"
+    },
+    {
+      "case_id": "N06",
+      "path": "docs/sql-select.txt",
+      "start_line": 744,
+      "end_line": 755,
+      "why": "WITH TIES按ORDER BY末位扩大结果",
+      "excerpt_sha256": "9d7cfaa9b6b7e19decb67d03745f0c9620231392bbf1ad319d0415ece39179b8"
+    },
+    {
+      "case_id": "N06",
+      "path": "code/src/backend/executor/nodeLimit.c",
+      "start_line": 153,
+      "end_line": 188,
+      "why": "达到计数的状态迁移及保存末位窗口元组",
+      "excerpt_sha256": "2d3003f38cc2135a4db60e90c4504835e064ec37d19d08a0338dad17e4db9971"
+    },
+    {
+      "case_id": "N06",
+      "path": "code/src/backend/executor/nodeLimit.c",
+      "start_line": 220,
+      "end_line": 249,
+      "why": "比较并列及首个不同键的处理",
+      "excerpt_sha256": "9bbcbd37fecff2e597612b6a93b46faa73ad8d489a271a074b6a8b96a13ca087"
+    }
+  ],
+  "pre_freeze_changes": [
+    {
+      "changed_utc": "2026-10-17T09:29:50.056521+00:00",
+      "case_id": "N05",
+      "field": "required_facts[2]",
+      "reason": "独立源码审核发现每轮直接按名义waittime扣remainingtime；信号可提前唤醒，最后一次等待后不再检查进程。因此不能把false表述为实际墙钟超时且进程返回时仍在。",
+      "before": "等待超过 timeout 仍未确认进程消失时，辅助函数发出 WARNING 并返回 false。",
+      "after": "辅助函数的名义等待预算 remainingtime 耗尽，且此前未观察到 ESRCH 时，发出 WARNING 并返回 false；false 表示等待过程未确认目标退出，不保证返回时目标仍存活。",
+      "old_cases_test_sha256": "1b72829efe1fe0c3c89c1be533e6a4d250be302641ab7f09b170e1e6f556a322",
+      "new_cases_test_sha256": "de30c6d424cbae1d414e7586a56f3052e3ab19400985c0b7563918af200e6439",
+      "question_or_count_changed": false,
+      "review_basis": "code/src/backend/storage/ipc/signalfuncs.c:167-202",
+      "agent_outputs_read": false
+    },
+    {
+      "case_id": "N05",
+      "field": "question",
+      "before": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只沿 PostgreSQL 17.0 实际源码说明 pg_terminate_backend(pid, timeout)：timeout=0 时返回 true，是否保证目标进程已经退出？timeout>0 时怎样等待、何时返回 true 或 false？请追到实际等待辅助函数，假定调用者有权限且发送终止信号成功。",
+      "after": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只沿 PostgreSQL 17.0 实际源码说明 pg_terminate_backend(pid, timeout)：timeout=0 时返回 true，是否保证目标进程已经退出？0<timeout≤INT_MAX 的普通正毫秒值时怎样等待、何时返回 true 或 false？本题不讨论超大参数的类型转换。请追到实际等待辅助函数，假定调用者有权限且发送终止信号成功。",
+      "reason": "独立审核发现17.0实现局部timeout为int而取参为PG_GETARG_INT64；冻结前把题干范围限制为普通可表示正毫秒值，避免不考察的超大参数转换分支。",
+      "review_basis": "code/src/backend/storage/ipc/signalfuncs.c:218-225",
+      "changed_utc": "2026-10-17T09:30:09.369317+00:00",
+      "old_cases_test_sha256": "de30c6d424cbae1d414e7586a56f3052e3ab19400985c0b7563918af200e6439",
+      "new_cases_test_sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a",
+      "case_count_changed": false,
+      "agent_outputs_read": false
+    },
+    {
+      "case_id": "N03",
+      "field": "required_facts[1]",
+      "before": "ExecOnConflictUpdate 中 table_tuple_lock 在 ExecQual(onConflictSetWhere, ...) 之前；条件不通过时清理 existing 并直接 return true，跳过后续投影和 ExecUpdate。",
+      "after": "ExecOnConflictUpdate 中 table_tuple_lock 在 ExecQual(onConflictSetWhere, ...) 之前；条件不通过时直接 return true，跳过后续投影、ExecUpdate 及其 RETURNING 路径。",
+      "reason": "独立审核移除题干没有要求的existing清理细节，保留锁行/WHERE/更新与返回先后顺序这一实际问题。",
+      "review_basis": "code/src/backend/executor/nodeModifyTable.c:2538-2542,2662-2667,2691-2707",
+      "changed_utc": "2026-10-17T09:30:09.369412+00:00",
+      "old_cases_test_sha256": "de30c6d424cbae1d414e7586a56f3052e3ab19400985c0b7563918af200e6439",
+      "new_cases_test_sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a",
+      "case_count_changed": false,
+      "agent_outputs_read": false
+    }
+  ],
+  "independent_review_passed": true,
+  "frozen_utc": "2026-10-17T09:32:13.639415+00:00",
+  "independent_review_record": "runs/独立验题.json"
+}

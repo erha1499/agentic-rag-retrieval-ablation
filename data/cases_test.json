@@ -1,0 +1,210 @@
+[
+  {
+    "id": "N01",
+    "split": "test",
+    "kind": "doc",
+    "difficulty": "easy",
+    "scenario": "small_doc",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。同一事务里两次建立同名保存点 SAVEPOINT s，后一次会销毁前一次吗？执行 RELEASE SAVEPOINT s 后，再执行 ROLLBACK TO s 指向哪一个？只讨论同名保存点的选择规则。",
+    "expected_action": "answer",
+    "required_facts": [
+      "PostgreSQL 保留旧的同名保存点，但较新同名保存点存在时，旧保存点被遮蔽；ROLLBACK TO 或 RELEASE 先选择最近的同名保存点。",
+      "RELEASE 最近的同名保存点后，旧的同名保存点重新可访问；随后 ROLLBACK TO s 可回到旧保存点。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-savepoint.txt",
+        "start_line": 19,
+        "end_line": 22,
+        "why": "同名保存点的遮蔽"
+      },
+      {
+        "path": "docs/sql-savepoint.txt",
+        "start_line": 85,
+        "end_line": 89,
+        "why": "保留旧同名点，释放新点后恢复可访问"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  },
+  {
+    "id": "N02",
+    "split": "test",
+    "kind": "doc",
+    "difficulty": "medium",
+    "scenario": "large_doc_narrow",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。对已有表加入 CHECK (price > 0) NOT VALID。有人说这会暂时允许新插入 price=-1，且随后 VALIDATE CONSTRAINT 必须全程挡住普通 UPDATE。这两个判断是否正确？请说明 NOT VALID 跳过的工作，以及随后 VALIDATE 的扫描、表锁和并发更新行为。",
+    "expected_action": "answer",
+    "required_facts": [
+      "NOT VALID 跳过添加约束时对全部既有行的验证扫描，不代表已确认全部历史数据满足约束。",
+      "约束仍对后续插入或更新生效，因此新插入 price=-1 会因 CHECK 约束失败。",
+      "VALIDATE CONSTRAINT 扫描既有行进行验证，取得 SHARE UPDATE EXCLUSIVE 表锁；它无需排斥普通并发更新，因为新增或更新行已经由约束检查。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-altertable.txt",
+        "start_line": 261,
+        "end_line": 272,
+        "why": "NOT VALID跳过初始扫描，但后续写入立即受约束"
+      },
+      {
+        "path": "docs/sql-altertable.txt",
+        "start_line": 314,
+        "end_line": 320,
+        "why": "后续验证扫描及锁模式"
+      },
+      {
+        "path": "docs/sql-altertable.txt",
+        "start_line": 725,
+        "end_line": 736,
+        "why": "验证不阻止普通并发更新的原因"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  },
+  {
+    "id": "N03",
+    "split": "test",
+    "kind": "mixed",
+    "difficulty": "hard",
+    "scenario": "mixed",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。INSERT ... ON CONFLICT DO UPDATE ... WHERE 条件对某条已发现的冲突行求值为 false。能否据此推断这条已有行没有被锁过？RETURNING 会不会包含该行？请同时用文档和实际执行器代码核验锁行、WHERE 求值、更新/返回的先后顺序；不需要讨论推测插入的并发重试。",
+    "expected_action": "answer",
+    "required_facts": [
+      "冲突 DO UPDATE 路径先锁定候选已有行，再对 DO UPDATE 的 WHERE 条件求值；WHERE 为 false 不能推断该行没有被锁过。",
+      "ExecOnConflictUpdate 中 table_tuple_lock 在 ExecQual(onConflictSetWhere, ...) 之前；条件不通过时直接 return true，跳过后续投影、ExecUpdate 及其 RETURNING 路径。",
+      "WHERE 不满足而只锁定、未更新的已有行不会出现在 RETURNING 结果中。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-insert.txt",
+        "start_line": 50,
+        "end_line": 55,
+        "why": "未更新的冲突行不返回"
+      },
+      {
+        "path": "docs/sql-insert.txt",
+        "start_line": 224,
+        "end_line": 228,
+        "why": "所有候选冲突行先锁定，condition最后求值"
+      },
+      {
+        "path": "code/src/backend/executor/nodeModifyTable.c",
+        "start_line": 2529,
+        "end_line": 2547,
+        "why": "执行器先锁行"
+      },
+      {
+        "path": "code/src/backend/executor/nodeModifyTable.c",
+        "start_line": 2651,
+        "end_line": 2667,
+        "why": "WHERE检查失败直接结束此元组"
+      },
+      {
+        "path": "code/src/backend/executor/nodeModifyTable.c",
+        "start_line": 2691,
+        "end_line": 2707,
+        "why": "成功路径才投影和调用ExecUpdate"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  },
+  {
+    "id": "N04",
+    "split": "test",
+    "kind": "code",
+    "difficulty": "easy",
+    "scenario": "code_verify",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只核验源码函数 ExecUpdateLockMode：它用哪两个列集合决定 UPDATE 的元组锁强度？有交集和无交集分别返回什么锁模式？请引用实际条件分支，不要仅用锁的一般定义解释。",
+    "expected_action": "answer",
+    "required_facts": [
+      "updatedCols 来自 ExecGetAllUpdatedCols(relinfo, estate)，keyCols 来自 RelationGetIndexAttrBitmap(..., INDEX_ATTR_BITMAP_KEY)，按 bms_overlap 比较两者是否相交。",
+      "有交集返回 LockTupleExclusive；无交集返回较弱的 LockTupleNoKeyExclusive。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/executor/execMain.c",
+        "start_line": 2349,
+        "end_line": 2371,
+        "why": "完整函数及两种返回分支"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  },
+  {
+    "id": "N05",
+    "split": "test",
+    "kind": "code",
+    "difficulty": "medium",
+    "scenario": "code_verify",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只沿 PostgreSQL 17.0 实际源码说明 pg_terminate_backend(pid, timeout)：timeout=0 时返回 true，是否保证目标进程已经退出？0<timeout≤INT_MAX 的普通正毫秒值时怎样等待、何时返回 true 或 false？本题不讨论超大参数的类型转换。请追到实际等待辅助函数，假定调用者有权限且发送终止信号成功。",
+    "expected_action": "answer",
+    "required_facts": [
+      "pg_terminate_backend 用 SIGTERM 调用 pg_signal_backend；timeout=0 时只按发送是否成功返回，true 不保证目标进程已经退出。",
+      "timeout>0 且发送成功时调用 pg_wait_until_termination；辅助函数循环用 kill(pid, 0) 检查进程存在性，遇到 ESRCH 才返回 true，轮间以 WaitLatch 等待并处理待决中断。",
+      "辅助函数的名义等待预算 remainingtime 耗尽，且此前未观察到 ESRCH 时，发出 WARNING 并返回 false；false 表示等待过程未确认目标退出，不保证返回时目标仍存活。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/storage/ipc/signalfuncs.c",
+        "start_line": 205,
+        "end_line": 230,
+        "why": "零超时仅发信号，实际SIGTERM调用"
+      },
+      {
+        "path": "code/src/backend/storage/ipc/signalfuncs.c",
+        "start_line": 246,
+        "end_line": 250,
+        "why": "正超时调用等待辅助函数"
+      },
+      {
+        "path": "code/src/backend/storage/ipc/signalfuncs.c",
+        "start_line": 148,
+        "end_line": 202,
+        "why": "存在性轮询、等待及超时返回"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  },
+  {
+    "id": "N06",
+    "split": "test",
+    "kind": "mixed",
+    "difficulty": "hard",
+    "scenario": "mixed",
+    "source_case": "新编",
+    "question": "请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。子计划按 ORDER BY score 升序产生 10、20、30、30、30、40，查询正向执行 FETCH FIRST 3 ROWS WITH TIES，且无 OFFSET。应返回几行？请结合官方语义与 ExecLimit 的实际实现说明如何保存并比较边界行，以及读到第一个不同排序键的元组时如何处理。",
+    "expected_action": "answer",
+    "required_facts": [
+      "WITH TIES 返回与结果末位 ORDER BY 值并列的额外行，因此该例返回五行（10、20、30、30、30），不是固定最多三行。",
+      "ExecLimit 复制第 count 个窗口内元组到 last_slot，达到计数后转入 LIMIT_WINDOWEND_TIES 状态，以后续元组和 last_slot 通过 eqfunction/ExecQualAndReset 检查并列。",
+      "并列元组继续返回；读到首个非并列元组（该例的40）时不返回该元组，改为 LIMIT_WINDOWEND 并返回 NULL，结束本次正向结果。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/sql-select.txt",
+        "start_line": 744,
+        "end_line": 755,
+        "why": "WITH TIES按ORDER BY末位扩大结果"
+      },
+      {
+        "path": "code/src/backend/executor/nodeLimit.c",
+        "start_line": 153,
+        "end_line": 188,
+        "why": "达到计数的状态迁移及保存末位窗口元组"
+      },
+      {
+        "path": "code/src/backend/executor/nodeLimit.c",
+        "start_line": 220,
+        "end_line": 249,
+        "why": "比较并列及首个不同键的处理"
+      }
+    ],
+    "notes": "金标准仅供评审；被测Agent只接收id、kind、question。允许等价且准确的事实及有效替代证据，不要求逐字复制参考。"
+  }
+]

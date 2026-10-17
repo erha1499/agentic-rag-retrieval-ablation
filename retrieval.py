@@ -29,6 +29,8 @@ def embed_text(chunk):
 
 def build_index(root, workers=1):
     index_dir = root / 'data/index'
+    if index_dir.is_symlink():
+        raise RuntimeError('共享冻结索引只读；重建须使用独立语料与独立预算')
     index_dir.mkdir(exist_ok=True)
     chunks = load_chunks(root)
     fingerprint = digest(root / 'data/chunks.jsonl')
@@ -117,7 +119,7 @@ class Retriever:
             return []
         match = ' OR '.join('"'+t.replace('"','""')+'"' for t in terms)
         if not hasattr(self._local,'conn'):
-            self._local.conn = sqlite3.connect(self.root/'data/index/keyword.sqlite')
+            self._local.conn = sqlite3.connect((self.root/'data/index/keyword.sqlite').resolve().as_uri()+'?mode=ro',uri=True)
         prefix = '%' if scope == 'all' else ('docs/%' if scope == 'doc' else 'code/%')
         rows = self._local.conn.execute('SELECT rowid FROM passages WHERE passages MATCH ? AND path LIKE ? ORDER BY bm25(passages,3,2,1) LIMIT 30',(match,prefix)).fetchall()
         return [i-1 for (i,) in rows]
@@ -154,7 +156,7 @@ class Retriever:
                 continue
             lines=(self.corpus/c['path']).read_text().splitlines()
             text='\n'.join(lines[lo-1:hi])
-            if total_chars+len(text)>24000:
+            if total_chars+len(text)>12000:
                 omitted+=1
                 continue
             selected.append({'path':c['path'],'kind':c['kind'],'start_line':lo,'end_line':hi,

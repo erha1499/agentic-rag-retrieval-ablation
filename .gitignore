@@ -9,9 +9,12 @@ __pycache__/
 data/corpus
 data/index
 data/raw
+data/downloads
 data/files.jsonl
 data/chunks.jsonl
 data/corpus_manifest.json
 data/corpus_validation.json
 runs/
 运行状态.json
+local_history/
+outputs/
