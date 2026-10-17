@@ -1,0 +1,262 @@
+{
+  "核验UTC": "2026-10-17T09:56:49.802954+00:00",
+  "passed": true,
+  "边界": "只核对执行、费用、证据位置和既定评审数据的一致性；不重新判断语义或更改审裁",
+  "checked": [
+    "独立公开价重算、三元上限、新轮无在途或未知、首轮两在途保留",
+    "新27项与首轮25项哈希再次一致",
+    "12任务唯一覆盖、每题实际API、相同system与工具边界、工具原文和实际已读范围",
+    "12盲号与12任务一一对应、三份原始评审保留、最终strict基本不变量",
+    "根代理审裁仅记录名单有变化且指定字段与审裁记录一致；未重新判断语义",
+    "12行CSV每字段、全部组别/题型/难度/场景、逐题费用median/P95与token独立重算一致",
+    "成功正文读取旁证与读取请求统计分别核验，无窗口夸大",
+    "10完成与2位置校验失败原状保留，没有升级成12任务全部成功"
+  ],
+  "formal_questions": 6,
+  "planned_tasks": 12,
+  "executed_tasks": 12,
+  "terminal_statuses": {
+    "complete": 10,
+    "evidence_validation_failed": 2
+  },
+  "reviewed_tasks": 12,
+  "new_freeze_files_verified": 27,
+  "old_freeze_files_verified": 25,
+  "new_pending_calls": 0,
+  "new_unknown_calls": 0,
+  "new_unreported_calls": 0,
+  "old_paused_pending_preserved": 2,
+  "total_incremental_public_price_cny": 0.4341825,
+  "development_public_price_cny": 0.0549716,
+  "formal_public_price_cny": 0.3792109,
+  "budget_cap_cny": 3,
+  "API_usage_by_model": {
+    "qwen-plus-2025-12-01": {
+      "calls": 85,
+      "reported_cost_cny": 0.426036,
+      "unreported_calls": 0,
+      "unknown_calls": 0,
+      "prompt_tokens": 492615,
+      "completion_tokens": 15972,
+      "total_tokens": 508587
+    },
+    "qwen3.7-text-embedding": {
+      "calls": 2,
+      "reported_cost_cny": 2.3500000000000002e-05,
+      "unreported_calls": 0,
+      "unknown_calls": 0,
+      "prompt_tokens": 47,
+      "completion_tokens": 0,
+      "total_tokens": 47
+    },
+    "qwen3.7-text-rerank": {
+      "calls": 2,
+      "reported_cost_cny": 0.008123,
+      "unreported_calls": 0,
+      "unknown_calls": 0,
+      "prompt_tokens": 16246,
+      "completion_tokens": 0,
+      "total_tokens": 16246
+    }
+  },
+  "per_case_arm_costs": [
+    {
+      "id": "N01",
+      "arm": "A",
+      "api_calls": 4,
+      "cost": 0.035994000000000005,
+      "prompt": 42675,
+      "output": 927
+    },
+    {
+      "id": "N01",
+      "arm": "B",
+      "api_calls": 6,
+      "cost": 0.013008400000000002,
+      "prompt": 9188,
+      "output": 821
+    },
+    {
+      "id": "N02",
+      "arm": "A",
+      "api_calls": 2,
+      "cost": 0.0107236,
+      "prompt": 11522,
+      "output": 753
+    },
+    {
+      "id": "N02",
+      "arm": "B",
+      "api_calls": 8,
+      "cost": 0.0860516,
+      "prompt": 104387,
+      "output": 1271
+    },
+    {
+      "id": "N03",
+      "arm": "A",
+      "api_calls": 8,
+      "cost": 0.033112,
+      "prompt": 37945,
+      "output": 1378
+    },
+    {
+      "id": "N03",
+      "arm": "B",
+      "api_calls": 8,
+      "cost": 0.06912410000000001,
+      "prompt": 78587,
+      "output": 1062
+    },
+    {
+      "id": "N04",
+      "arm": "A",
+      "api_calls": 3,
+      "cost": 0.0067664000000000005,
+      "prompt": 7313,
+      "output": 458
+    },
+    {
+      "id": "N04",
+      "arm": "B",
+      "api_calls": 4,
+      "cost": 0.013106000000000001,
+      "prompt": 14490,
+      "output": 757
+    },
+    {
+      "id": "N05",
+      "arm": "A",
+      "api_calls": 6,
+      "cost": 0.0193364,
+      "prompt": 21853,
+      "output": 927
+    },
+    {
+      "id": "N05",
+      "arm": "B",
+      "api_calls": 7,
+      "cost": 0.0286032,
+      "prompt": 31864,
+      "output": 1556
+    },
+    {
+      "id": "N06",
+      "arm": "A",
+      "api_calls": 8,
+      "cost": 0.0354668,
+      "prompt": 41216,
+      "output": 1247
+    },
+    {
+      "id": "N06",
+      "arm": "B",
+      "api_calls": 7,
+      "cost": 0.027918400000000003,
+      "prompt": 31518,
+      "output": 1352
+    }
+  ],
+  "by_arm_recomputed": {
+    "A": {
+      "planned": 6,
+      "executed": 6,
+      "completed": 5,
+      "assessable": 6,
+      "reviewed": 6,
+      "pending_review": 0,
+      "strict_passed": 2,
+      "strict_task_success_rate": 0.3333333333333333,
+      "strict_planned_success_rate": 0.3333333333333333,
+      "planned_fact_count": 16,
+      "assessed_fact_count": 16,
+      "correct_covered_facts": 12,
+      "supported_covered_facts": 10,
+      "chat_prompt_tokens": 162524,
+      "chat_completion_tokens": 5690,
+      "online_cost_lower_cny": 0.1413992,
+      "online_cost_upper_cny": 0.1413992,
+      "unknown_calls": 0,
+      "pending_calls": 0,
+      "cost_median_lower_cny": 0.026224200000000003,
+      "cost_median_upper_cny": 0.026224200000000003,
+      "cost_p95_lower_cny": 0.035862200000000004,
+      "cost_p95_upper_cny": 0.035862200000000004,
+      "latency_median_seconds": 25.1455,
+      "latency_p95_seconds": 35.541,
+      "whole_file_read_calls": 0,
+      "range_read_calls": 9,
+      "grep_calls": 18,
+      "rag_calls": 0,
+      "tasks_using_rag": 0,
+      "tool_return_chars": 135930
+    },
+    "B": {
+      "planned": 6,
+      "executed": 6,
+      "completed": 5,
+      "assessable": 6,
+      "reviewed": 6,
+      "pending_review": 0,
+      "strict_passed": 2,
+      "strict_task_success_rate": 0.3333333333333333,
+      "strict_planned_success_rate": 0.3333333333333333,
+      "planned_fact_count": 16,
+      "assessed_fact_count": 16,
+      "correct_covered_facts": 11,
+      "supported_covered_facts": 10,
+      "chat_prompt_tokens": 270034,
+      "chat_completion_tokens": 6819,
+      "online_cost_lower_cny": 0.23781170000000001,
+      "online_cost_upper_cny": 0.23781170000000001,
+      "unknown_calls": 0,
+      "pending_calls": 0,
+      "cost_median_lower_cny": 0.028260800000000003,
+      "cost_median_upper_cny": 0.028260800000000003,
+      "cost_p95_lower_cny": 0.08181972500000001,
+      "cost_p95_upper_cny": 0.08181972500000001,
+      "latency_median_seconds": 32.588,
+      "latency_p95_seconds": 39.8875,
+      "whole_file_read_calls": 0,
+      "range_read_calls": 11,
+      "grep_calls": 16,
+      "rag_calls": 2,
+      "tasks_using_rag": 2,
+      "tool_return_chars": 149484
+    }
+  },
+  "paired_recomputed": {
+    "planned_pairs": 6,
+    "both_executed": 6,
+    "both_terminal": 6,
+    "reviewed_pairs": 6,
+    "incomplete_pairs": 0,
+    "both_pass": 1,
+    "A_only_pass": 1,
+    "B_only_pass": 1,
+    "neither_pass": 3
+  },
+  "raw_review_files_preserved": 3,
+  "adjudication_changed_blind_ids": [
+    "E001",
+    "E004",
+    "E008",
+    "E010"
+  ],
+  "root_adjudication_applied_without_rescoring": true,
+  "evidence_files_checked": 73,
+  "artifact_sha256": {
+    "results/改进轮/统计汇总.json": "f392326e48b26637640334ef906136448929c144e6522433dcc88c8f636361e7",
+    "results/改进轮/逐题结果.csv": "86da3bdca7b1b04d6ec32bac99b1db4a863bdb5612a9140a3c1b6a3498edd195",
+    "results/改进轮/工具路由.json": "94b935409f62f8a90832304645aaa344c3f7d2f7a8d17a0477b9ed8134d0383c",
+    "runs/review/private_mapping.json": "eb2a3420e48948676ae1e35438cc735f491f403edf4d494436d6fd35c79b871e",
+    "runs/review/root_adjudication.json": "e2e6fac63721a6ca013a6ba3f35e6698740864a6586e45de79f106b64e56dd46"
+  },
+  "ledger_sha256": "c5f2ff0c97ffe4984952b0853a16189f55f85e146e916f431ec84749354516eb",
+  "caveats": [
+    "公开价费用不是核对后的供应方账单；复用索引，不含旧建库。",
+    "引用位置通过不证明事实正确，严格通过沿用盲审和根代理审裁。",
+    "读取请求次数按参数并包含失败，成功读取旁证按返回read_mode，二者分开。",
+    "首轮仍暂停，原两笔pending未清零、未计入新增3元。"
+  ]
+}

@@ -1,0 +1,512 @@
+[
+  {
+    "id": "N01",
+    "arm": "A",
+    "kind": "doc",
+    "difficulty": "easy",
+    "scenario": "small_doc",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "grep",
+      "grep"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 0,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "docs/sql-savepoint.txt",
+          "start_line": 21,
+          "end_line": 22
+        },
+        {
+          "path": "docs/sql-savepoint.txt",
+          "start_line": 85,
+          "end_line": 89
+        },
+        {
+          "path": "docs/sql-savepoint.txt",
+          "start_line": 87,
+          "end_line": 88
+        },
+        {
+          "path": "docs/sql-release-savepoint.txt",
+          "start_line": 30,
+          "end_line": 31
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N01",
+    "arm": "B",
+    "kind": "doc",
+    "difficulty": "easy",
+    "scenario": "small_doc",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "grep",
+      "rag_search"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 0,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "docs/sql-savepoint.txt",
+          "start_line": 95,
+          "end_line": 97
+        },
+        {
+          "path": "docs/sql-savepoint.txt",
+          "start_line": 97,
+          "end_line": 98
+        },
+        {
+          "path": "docs/sql-release-savepoint.txt",
+          "start_line": 30,
+          "end_line": 32
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N02",
+    "arm": "A",
+    "kind": "doc",
+    "difficulty": "medium",
+    "scenario": "large_doc_narrow",
+    "status": "complete",
+    "tool_sequence": [
+      "grep"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 0,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "docs/sql-altertable.txt",
+          "start_line": 266,
+          "end_line": 272
+        },
+        {
+          "path": "docs/sql-altertable.txt",
+          "start_line": 316,
+          "end_line": 318
+        },
+        {
+          "path": "docs/sql-altertable.txt",
+          "start_line": 724,
+          "end_line": 736
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N02",
+    "arm": "B",
+    "kind": "doc",
+    "difficulty": "medium",
+    "scenario": "large_doc_narrow",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "grep",
+      "read_file",
+      "read_file",
+      "grep",
+      "grep",
+      "grep"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 2,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "docs/sql-alterdomain.txt",
+          "start_line": 46,
+          "end_line": 47
+        },
+        {
+          "path": "code/src/backend/commands/tablecmds.c",
+          "start_line": 4657,
+          "end_line": 4658
+        },
+        {
+          "path": "code/src/backend/commands/tablecmds.c",
+          "start_line": 11690,
+          "end_line": 11705
+        },
+        {
+          "path": "docs/sql-altertable.txt",
+          "start_line": 266,
+          "end_line": 267
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N03",
+    "arm": "A",
+    "kind": "mixed",
+    "difficulty": "hard",
+    "scenario": "mixed",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "grep",
+      "grep",
+      "read_file",
+      "read_file",
+      "grep",
+      "grep",
+      "read_file",
+      "grep"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 1,
+    "repair_count": 1,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "code/src/backend/executor/nodeModifyTable.c",
+          "start_line": 2532,
+          "end_line": 2542
+        },
+        {
+          "path": "code/src/backend/executor/nodeModifyTable.c",
+          "start_line": 2491,
+          "end_line": 2493
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N03",
+    "arm": "B",
+    "kind": "mixed",
+    "difficulty": "hard",
+    "scenario": "mixed",
+    "status": "complete",
+    "tool_sequence": [
+      "rag_search",
+      "grep",
+      "grep",
+      "read_file",
+      "read_file"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 2,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "code/src/backend/executor/nodeModifyTable.c",
+          "start_line": 2538,
+          "end_line": 2542
+        },
+        {
+          "path": "code/src/backend/executor/nodeModifyTable.c",
+          "start_line": 2662,
+          "end_line": 2667
+        },
+        {
+          "path": "docs/sql-insert.txt",
+          "start_line": 60,
+          "end_line": 64
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N04",
+    "arm": "A",
+    "kind": "code",
+    "difficulty": "easy",
+    "scenario": "code_verify",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "read_file"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 1,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2363,
+          "end_line": 2365
+        },
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2367,
+          "end_line": 2368
+        },
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2370,
+          "end_line": 2370
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N04",
+    "arm": "B",
+    "kind": "code",
+    "difficulty": "easy",
+    "scenario": "code_verify",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "read_file"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 1,
+    "repair_count": 1,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2364,
+          "end_line": 2365
+        },
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2363,
+          "end_line": 2363
+        },
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2367,
+          "end_line": 2368
+        },
+        {
+          "path": "code/src/backend/executor/execMain.c",
+          "start_line": 2370,
+          "end_line": 2370
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N05",
+    "arm": "A",
+    "kind": "code",
+    "difficulty": "medium",
+    "scenario": "code_verify",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "read_file",
+      "grep",
+      "read_file",
+      "read_file"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 3,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 249,
+          "end_line": 250
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 147,
+          "end_line": 202
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 172,
+          "end_line": 172
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N05",
+    "arm": "B",
+    "kind": "code",
+    "difficulty": "medium",
+    "scenario": "code_verify",
+    "status": "complete",
+    "tool_sequence": [
+      "grep",
+      "read_file",
+      "grep",
+      "read_file",
+      "read_file"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 3,
+    "repair_count": 1,
+    "position_validation": {
+      "passed": true,
+      "citations": [
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 247,
+          "end_line": 250
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 172,
+          "end_line": 175
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 196,
+          "end_line": 202
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 172,
+          "end_line": 175
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 223,
+          "end_line": 223
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 148,
+          "end_line": 148
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 159,
+          "end_line": 159
+        },
+        {
+          "path": "code/src/backend/storage/ipc/signalfuncs.c",
+          "start_line": 193,
+          "end_line": 193
+        }
+      ],
+      "errors": [],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N06",
+    "arm": "A",
+    "kind": "mixed",
+    "difficulty": "hard",
+    "scenario": "mixed",
+    "status": "evidence_validation_failed",
+    "tool_sequence": [
+      "grep",
+      "grep",
+      "grep",
+      "grep",
+      "read_file",
+      "read_file",
+      "grep"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 2,
+    "repair_count": 0,
+    "position_validation": {
+      "passed": false,
+      "citations": [
+        {
+          "path": "docs/src/doc/src/sgml/queries.sgml",
+          "start_line": 12892,
+          "end_line": 12898
+        },
+        {
+          "path": "code/src/backend/executor/nodeLimit.c",
+          "start_line": 514,
+          "end_line": 520
+        },
+        {
+          "path": "code/src/backend/executor/execGrouping.c",
+          "start_line": 52,
+          "end_line": 56
+        }
+      ],
+      "errors": [
+        "引用包含未收到的行：docs/src/doc/src/sgml/queries.sgml:L12892-L12898"
+      ],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  },
+  {
+    "id": "N06",
+    "arm": "B",
+    "kind": "mixed",
+    "difficulty": "hard",
+    "scenario": "mixed",
+    "status": "evidence_validation_failed",
+    "tool_sequence": [
+      "grep",
+      "grep",
+      "read_file",
+      "read_file",
+      "grep",
+      "grep",
+      "read_file"
+    ],
+    "successful_whole_reads": 0,
+    "successful_range_reads": 3,
+    "repair_count": 1,
+    "position_validation": {
+      "passed": false,
+      "citations": [
+        {
+          "path": "docs/sql-select.txt",
+          "start_line": 753,
+          "end_line": 754
+        },
+        {
+          "path": "docs/sql-select.txt",
+          "start_line": 753,
+          "end_line": 754
+        }
+      ],
+      "errors": [
+        "引用格式无效：code/src/backend/executor/nodeLimit.c: no match"
+      ],
+      "scope": "只验证位置已读，不验证内容正确或语义支持"
+    }
+  }
+]

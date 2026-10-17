@@ -1,0 +1,44 @@
+{
+  "created_utc": "2026-10-17T09:50:20.215982+00:00",
+  "raw_reviews": "runs/review_raw/",
+  "adjudicated_before_unblinding": true,
+  "overrides": {
+    "E010": {
+      "citation_supported": true,
+      "strict_pass": true,
+      "material_errors": [],
+      "reason": "根代理审裁：两必要事实与精确API/实际分支引用完整正确。keyCols中文概括不够精确，但未明示全部或非唯一索引，紧邻准确INDEX_ATTR_BITMAP_KEY接口；不把进一步展开relcache子集定义作为题干未要求的隐藏条件。保留术语精度备注，严格通过。"
+    },
+    "E008": {
+      "citation_supported": true,
+      "strict_pass": true,
+      "reason": "根代理审裁：开头明确docs/sql-savepoint.txt:L85–L109并逐字引用85–89真实段落，另有release-savepoint:L30–L32正确出处，必要事实全对且实际已读。总结括号95–98错位保留为定位精度问题；按等效有效出处规则，整体已有充分可核验支持，严格通过。"
+    }
+  },
+  "other_spotchecks": [
+    "E001",
+    "E004",
+    "E005",
+    "E007",
+    "E003",
+    "E012"
+  ],
+  "standards": "依题干与事先评分规则；不改金标准、正式配置、原始模型回答或运行状态。原始评分完整保留。",
+  "additional_fact_adjudication": {
+    "E001_fact_1": "零超时主语义已完整回答，题干已假定发信号成功，不要求复述SIGTERM名称才计覆盖。"
+  },
+  "field_consistency_normalized": [
+    {
+      "blind_id": "E001",
+      "index": 2
+    },
+    {
+      "blind_id": "E001",
+      "index": 3
+    },
+    {
+      "blind_id": "E004",
+      "index": 2
+    }
+  ]
+}

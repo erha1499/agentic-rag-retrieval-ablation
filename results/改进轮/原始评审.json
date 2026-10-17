@@ -1,0 +1,428 @@
+[
+  {
+    "blind_id": "E001",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": false,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确说明 timeout=0 只按 SIGNAL_BACKEND_SUCCESS 返回 true，且不保证退出；L247-L250 引文支持这一部分。未说明 pg_terminate_backend 实际以 SIGTERM 调用 pg_signal_backend，必要事实未完全覆盖；该调用位于实际已读的 L230。"
+      },
+      {
+        "index": 2,
+        "covered": false,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "已正确给出正超时调用 pg_wait_until_termination、kill(pid,0) 及 ESRCH 返回 true，并提到最多100ms步长。实际收到 L143-L280，包含完整辅助函数和成功后等待分支。但答案遗漏 WaitLatch 等待及 CHECK_FOR_INTERRUPTS 处理中断，必要事实不齐；调用及步长也未由所列 L172-L175 引文直接覆盖。"
+      },
+      {
+        "index": 3,
+        "covered": false,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "已提到超时 WARNING 并返回 false，所引 L196-L202 为真实收到的原文。未说明 remainingtime 扣减的是名义等待预算，也未明确 false 只表示等待中未确认退出、不能据此保证返回时进程仍存活。实际已读 L169-L202 可支持这些边界，但答案没有完整表达。"
+      }
+    ],
+    "material_errors": [],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "有非空答案并追到实际源码辅助函数，零超时和 ESRCH/超时的主干解释正确；但缺少 SIGTERM 调用、WaitLatch/中断处理以及 false 的确认边界。多个附加结论的锚点不完整：最多100ms和调用等待函数分别见已读 L154、L247-L248，而其附近引用只落在 L172-L175/L196-L202。第4点提到完整毫秒范围，按本题限定只理解为普通正毫秒值至 INT_MAX，不以未要求的超大参数转换另行判错；单行引用 L223/L148/L159/L193 均合法。即使根代理接受上述引用边界，本答案仍缺必要事实。",
+    "evidence_paths_checked": [
+      "code/src/backend/storage/ipc/signalfuncs.c"
+    ]
+  },
+  {
+    "blind_id": "E004",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确说明发送 SIGTERM 成功时 timeout=0 直接返回 true，不能保证进程已退出。调用者有权限且发送成功是题干假设；实际收到 L213-L280，包括 L230 的 pg_signal_backend(pid,SIGTERM) 和 L247-L250 分支。直接引用仅 L249-L250，SIGTERM 的具体锚点 L230 未包含在引用中，交根代理审裁引用边界。"
+      },
+      {
+        "index": 2,
+        "covered": false,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "给出 pg_wait_until_termination、kill(pid,0)、ESRCH、CHECK_FOR_INTERRUPTS 和 postmaster 死亡响应，且 L147-L202 整段已实际收到并引用。没有说明实际以 WaitLatch 等待；“每100ms”是步长的概括，未体现 L169-L170 的剩余不足100ms时缩短。主要已述机制正确，但必要事实中的等待机制未完整覆盖。"
+      },
+      {
+        "index": 3,
+        "covered": true,
+        "correct": false,
+        "evidence_supported": false,
+        "comment": "答案明确 remainingtime<=0 后 WARNING/false，并以“在时限内确认退出则 true，否则 false”表达了未确认的含义，未直接声称 false 时目标必然仍活着。但“以最多 timeout 毫秒为限”将 remainingtime 名义预算说成实际耗时上限；L186-L194 只按 waittime 扣减，没有实测墙钟耗时，也没有在预算耗尽后再检查一次 ESRCH。该上限断言不是引文可保证的语义，交根代理复核。"
+      }
+    ],
+    "material_errors": [
+      "把普通正 timeout 描述为实际等待“最多 timeout 毫秒为限”，而所读实现只扣减名义 waittime；引文没有保证真实经过时间的硬上限。此处仅核本题普通正参数的预算/确认语义，没有加入超大参数类型转换要求。"
+    ],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "非空答案，源码辅助函数和主要返回分支基本正确，已读全文支持大部分解释；但没有交代 WaitLatch，且对普通正超时的实际耗时上限表述超出实现保证。SIGTERM 具体调用在已读 L230，所列零超时引文 L249-L250 仅覆盖返回分支。引用 L172 单行本身有效，不因其格式扣分。真实时间上限及零超时引文边界均已通知根代理复核。",
+    "evidence_paths_checked": [
+      "code/src/backend/storage/ipc/signalfuncs.c"
+    ]
+  },
+  {
+    "blind_id": "E007",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确说明 NOT VALID 跳过对已有行的初始全表验证扫描；实际收到并引用 docs/sql-altertable.txt L266-L267，支持历史数据尚未完成验证的含义。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": false,
+        "comment": "新插入 price=-1 仍受 CHECK 检查的结论正确，但实际表约束文档只收到 L261-L267，未收到直接说明后续写入的 L268-L271。所引 sql-alterdomain.txt L46-L47 讨论 ALTER DOMAIN 的域约束，不能直接证明本题 ALTER TABLE 新增的表 CHECK；已读 tablecmds.c 验证排队片段也没有展示该表 CHECK 的DML执行检查。"
+      },
+      {
+        "index": 3,
+        "covered": true,
+        "correct": false,
+        "evidence_supported": false,
+        "comment": "提到 phase 3 扫描、ShareUpdateExclusiveLock 和并发更新，但先断言扫描不阻塞写入，随后又称无法确认扫描期间是否加表锁或阻塞 UPDATE，自相矛盾；并错误添加更新 convalidated 时瞬间需要 AccessExclusiveLock。实际收到 L4657-L4658 支持 ShareUpdateExclusiveLock，L11690-L11705 支持排队，但并未读到实际扫描实现，且未收到文档 L314-L320/L725-L736 的完整验证及并发说明；故不能由实际证据支持整个必要事实。"
+      }
+    ],
+    "material_errors": [
+      "声称更新 pg_constraint.convalidated=true 的瞬间需 AccessExclusiveLock。所引无路径 L11717-L11720 只有复制和更新目录元组，没有该锁；已读同函数 L11571 明确 pg_constraint 以 RowExclusiveLock 打开，目标表锁选择 L4657-L4658 为 ShareUpdateExclusiveLock。",
+      "未读实际 phase 3 扫描函数，却断言它使用 MVCC 快照全表扫描并不阻塞 INSERT/UPDATE/DELETE；实际扫描与快照在未收到的 tablecmds.c L5862-L5864、L6153-L6154。并发结论随后又被答案自身称为无法确认，未形成完整可核验回答。",
+      "将 ALTER DOMAIN 的 NOT VALID 后续写入规则当作 ALTER TABLE 表 CHECK 的直接出处，跨对象外推缺少本题适用性证据。"
+    ],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "题干要求本地 PostgreSQL 官方语料，并未禁止源码，因此不因使用 tablecmds.c 而单独判来源不符。但新写入生效的引用是域约束文档，表约束的直接说明未实际收到；验证扫描、锁与并发的回答还包含未读扩写、AccessExclusiveLock 实质错误和相互矛盾的判断。故必要事实2的结论虽正确却缺实际适用证据，必要事实3不正确且支持不足。",
+    "evidence_paths_checked": [
+      "docs/sql-alterdomain.txt",
+      "docs/sql-altertable.txt",
+      "code/src/backend/commands/tablecmds.c"
+    ]
+  },
+  {
+    "blind_id": "E010",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "准确给出 ExecGetAllUpdatedCols 和 RelationGetIndexAttrBitmap(...,INDEX_ATTR_BITMAP_KEY) 两个集合来源，并以 bms_overlap 比较；实际收到 execMain.c L2344-L2385，引用 L2363、L2364-L2365 均支持。中文对 keyCols 的额外宽泛定义另记实质错误，不否定这项精确API/分支事实。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "有交集 LockTupleExclusive、无交集 LockTupleNoKeyExclusive 与已读 L2367-L2370 一致，引用实际条件分支充分；L2370 单行引用合法。"
+      }
+    ],
+    "material_errors": [
+      "额外将 keyCols 定义成“表的索引键列（含主键、唯一约束列）”，范围过宽且不由已读 execMain.c 支持。冻结 relcache.c L5221-L5222、L5358-L5361 和 L5403-L5405 表明 INDEX_ATTR_BITMAP_KEY 只收集非部分、无表达式的唯一索引的键列，不包含普通非唯一索引键。答案未实际收到 relcache.c。此宽泛中文定义是否被紧邻准确API名充分限定，已请根代理复核。"
+    ],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "两个必要事实及实际分支引文全部通过，单行格式不构成问题。失败来自额外的 keyCols 集合泛化：若按中文通常含义理解为所有表索引键列，会对普通索引列 UPDATE 的锁强度形成错误推导。源码当前函数内无其他分支等局部观察与已读实现一致；未强迫本题追到其他实现。保留核心事实全通过，将是否属重要额外错误交根代理审裁。",
+    "evidence_paths_checked": [
+      "code/src/backend/executor/execMain.c",
+      "code/src/backend/utils/cache/relcache.c",
+      "code/src/backend/executor/execUtils.c"
+    ]
+  },
+  {
+    "blind_id": "E002",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "明确算得5行（10、20、30、30、30），并解释第3行30以及其余并列行均纳入。实际收到的nodeLimit.c:L153-L188、L220-L249可支持此计算；但声称语义定义来自的docs/src/doc/src/sgml/queries.sgml不在冻结语料中，且received_windows没有任何文档，联合来源及引用另判不通过。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "说明第count行复制到last_slot、进入LIMIT_WINDOWEND_TIES后用eqfunction及ExecQualAndReset比较。实际已读nodeLimit.c全文件，其中L153-L188含达到计数后转状态及边界复制，L238-L240含比较，L514-L520含比较器与槽初始化；核心实现描述正确。正文的【L113, L187】和【L240】缺少完整路径，引用有效性另判。"
+      },
+      {
+        "index": 3,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "已给出并列30继续纳入5行、首个不同键40触发LIMIT_WINDOWEND并返回NULL终止，不输出40。实际收到nodeLimit.c:L220-L249及L274的控制流支持；局部【L245-L248】不是规则要求的完整路径引用。"
+      }
+    ],
+    "material_errors": [
+      "额外声称eqfunction依据“操作符族”构造并“确保与排序行为严格一致”，超出实际收到的execGrouping.c:L50-L61所能证明的NOT DISTINCT接口说明；已读nodeLimit.c:L515-L520实际传入的是uniqOperators等值操作符、列信息和collations，不能据此把操作符族及完整严格一致性保证作为已核验实现事实。"
+    ],
+    "source_requirement_met": false,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "有非空答案，故尽管运行状态为evidence_validation_failed仍逐项评审。五行结果及ExecLimit主要控制流正确且有已读源码支持。但题干要求官方文档语义与实现联合核验，received_windows仅有源码；docs/src/doc/src/sgml/queries.sgml并非冻结语料中的文件，所标L12892-L12898也无实际收到证据。多处【L113, L187】、【L240】、【L245-L248】未给出完整路径，不能当作合规定位；末段另有越出已读实现的扩张断言，严格不通过。",
+    "evidence_paths_checked": [
+      "docs/sql-select.txt",
+      "code/src/backend/executor/nodeLimit.c",
+      "code/src/backend/executor/execGrouping.c"
+    ]
+  },
+  {
+    "blind_id": "E005",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "明确指出冲突路径先锁候选行，再求WHERE，因此false不表示未加锁；核心结论正确。已读nodeModifyTable.c:L2529-L2547、L2662-L2667支持先后，文档sql-insert.txt:L50-L55亦支持已锁但未更新的情形。额外括注把锁模式固定为LockTupleExclusive的问题另记material_errors。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正文列出table_tuple_lock:L2538-L2542、ExecQual及false直接return true:L2662-L2667、ExecUpdate:L2704-L2707，说明false跳过更新与返回；已收到L2494-L2750，涵盖L2691-L2692投影也处于提前返回之后。虽未完整抄出ExecProject函数名，已准确覆盖提前结束和跳过后续更新/RETURNING路径。"
+      },
+      {
+        "index": 3,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "明确结论为该行不出现在RETURNING；已读sql-insert.txt:L50-L55和提前返回的源码支持。所标文档引用L60-L64实际讲INSERT/UPDATE/SELECT权限，不支持此结论，故引用字段另判false。"
+      }
+    ],
+    "material_errors": [
+      "把table_tuple_lock调用的锁模式确定为“LockTupleExclusive”不成立。已读nodeModifyTable.c:L2529-L2541仅表明先由ExecUpdateLockMode计算lockmode；冻结execMain.c:L2353-L2370显示更新列与键列相交才返回LockTupleExclusive，否则返回LockTupleNoKeyExclusive。该额外实现断言既无实际收到的函数实现支持，也错误排除了较弱模式。"
+    ],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "核心问题的锁行、WHERE和提前返回顺序，以及RETURNING不包含该行均答对，文档与实现也确实均被读到。但docs/sql-insert.txt:L60-L64是权限段落，准确支持应在已读L50-L55；并且答案额外把锁模式一概说成LockTupleExclusive，源码存在LockTupleNoKeyExclusive分支。不能因主要结论正确而忽略引用错误与重要额外实现错误，严格不通过。",
+    "evidence_paths_checked": [
+      "docs/sql-insert.txt",
+      "code/src/backend/executor/nodeModifyTable.c",
+      "code/src/backend/executor/execMain.c"
+    ]
+  },
+  {
+    "blind_id": "E008",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确说明同名新保存点不销毁旧点、只遮蔽旧点，ROLLBACK TO与RELEASE选择最近同名点。实际收到完整sql-savepoint.txt:L1-L109，其中L21-L22、L85-L89直接支持；正文还逐字引用了正确L85-L89段落。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "明确RELEASE最新同名点后旧点重新可访问，随后ROLLBACK TO回到前一个。已读sql-savepoint.txt:L85-L89及sql-release-savepoint.txt:L30-L31支持；正文补充无保存点时出错也能由已读sql-rollback-to.txt:L29支持。"
+      }
+    ],
+    "material_errors": [],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "必要事实及额外的无保存点时报错均正确，已读文档证据充分。但最终合规括号引用sql-savepoint.txt:L95-L97、L97-L98实际位于See Also的标点与COMMIT条目，不支持相邻断言。开头普通文字虽给出较宽L85-L109并引用了正确内容，且release-savepoint:L30-L32正确，但不能使错误的精确定位成立；暂按准确行号要求判严格不通过，提交根代理抽核这一引用表达边界。",
+    "evidence_paths_checked": [
+      "docs/sql-savepoint.txt",
+      "docs/sql-release-savepoint.txt",
+      "docs/sql-rollback-to.txt"
+    ]
+  },
+  {
+    "blind_id": "E011",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "说明旧同名点保留但暂不可访问，操作使用最新同名保存点。已读sql-savepoint.txt:L21-L22、L85-L89，且最终引用均准确；release-savepoint:L30-L31亦支持选择最近未释放点。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "明确RELEASE新点后旧点重新可访问，后续ROLLBACK TO指向更早的同名点。实际收到sql-savepoint.txt:L80-L90包含所引L87-L88，且release-savepoint:L30-L31已读并准确。"
+      }
+    ],
+    "material_errors": [],
+    "source_requirement_met": true,
+    "citation_supported": true,
+    "strict_pass": true,
+    "reason": "全部必要事实齐全正确，使用的文档范围均在received_windows内，最终完整路径行号引用能直接支持对应结论；额外提及ROLLBACK TO销毁目标之后的保存点也与已读sql-rollback-to.txt:L16一致。未发现重要额外错误，严格通过。",
+    "evidence_paths_checked": [
+      "docs/sql-savepoint.txt",
+      "docs/sql-release-savepoint.txt",
+      "docs/sql-rollback-to.txt"
+    ]
+  },
+  {
+    "blind_id": "E003",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": false,
+        "evidence_supported": false,
+        "comment": "已正确写出 ExecGetAllUpdatedCols(relinfo, estate)、RelationGetIndexAttrBitmap(..., INDEX_ATTR_BITMAP_KEY) 及 bms_overlap，且 execMain.c:L2363-L2367 实际已读。但把 keyCols 解释成该表所有索引键列，扩大了参与比较的列集合；冻结 relcache.c:L5221-L5222 明确仅为非部分、非表达式、可用于外键的唯一索引列，并非所有普通索引键。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "有交集返回 LockTupleExclusive、无交集返回 LockTupleNoKeyExclusive，分别由实际收到且已引用的 execMain.c:L2367-L2368 与单行 L2370 直接支持；单行引用按合法 L2370-L2370 处理。"
+      }
+    ],
+    "material_errors": [
+      "把 INDEX_ATTR_BITMAP_KEY 扩写为所有索引键列（含主键、唯一约束等），使普通非唯一索引键、部分索引或表达式索引等也被误纳入决定强锁的键列集合；实际定义见 code/src/backend/utils/cache/relcache.c:L5221-L5222、docs/explicit-locking.txt:L148-L151，且这些扩写依据不在本答案 received_windows 内。",
+      "称 LockTupleNoKeyExclusive 不阻塞仅读取非键列的 SELECT FOR UPDATE，这是实质错误。行锁冲突不取决于 SELECT 投影列；docs/explicit-locking.txt:L139-L144、L153-L157 及 L179-L189 表明较弱锁兼容的是 FOR KEY SHARE，仍与 FOR UPDATE 冲突。"
+    ],
+    "source_requirement_met": true,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "实际读到并引用了目标源码函数完整条件分支，两个返回常量正确；但列集合的额外解释扩大了真实 keyCols 范围，并给出错误的 SELECT FOR UPDATE 并发示例，影响题目要求核验的锁强度含义，不能严格通过。",
+    "evidence_paths_checked": [
+      "code/src/backend/executor/execMain.c",
+      "code/src/backend/utils/cache/relcache.c",
+      "docs/explicit-locking.txt"
+    ]
+  },
+  {
+    "blind_id": "E006",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确给出五行 10、20、30、30、30，解释第 3 行的排序值 30 及额外并列行；docs/sql-select.txt:L753-L754 在实际收到的 L745-L755 范围内且引用支持该语义。"
+      },
+      {
+        "index": 2,
+        "covered": false,
+        "correct": false,
+        "evidence_supported": false,
+        "comment": "明确表示无法核验保存与比较机制，未说明 ExecCopySlot 将第 count 个窗口元组保存到 last_slot、计数达到后转入 LIMIT_WINDOWEND_TIES，以及 eqfunction/ExecQualAndReset。实际 received_windows 未覆盖 nodeLimit.c:L153-L188 或 L220-L249。"
+      },
+      {
+        "index": 3,
+        "covered": false,
+        "correct": false,
+        "evidence_supported": false,
+        "comment": "只在文档语义层面说后续两个 30 包含、40 不同则停止，没有给出首个非并列元组不返回、lstate 改成 LIMIT_WINDOWEND 并 return NULL 的执行器过程；并明确自认实现未核验，相关实际分支未读。"
+      }
+    ],
+    "material_errors": [],
+    "source_requirement_met": false,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "有非空答案，尽管运行状态是 evidence_validation_failed 仍可逐项评分。五行结果的文档推导正确，但题干同时要求的 ExecLimit 实现没有核验；【code/src/backend/executor/nodeLimit.c: no match】不是可定位源码引用，不能弥补保存、比较及终止分支的缺失。",
+    "evidence_paths_checked": [
+      "docs/sql-select.txt",
+      "code/src/backend/executor/nodeLimit.c"
+    ]
+  },
+  {
+    "blind_id": "E009",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "明确说明 NOT VALID 只跳过添加时对历史数据的全表验证扫描，数据库尚不认为所有旧行满足约束；实际收到并引用 docs/sql-altertable.txt:L266-L272。"
+      },
+      {
+        "index": 2,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确否定新插入 price=-1 暂时被允许，也说明后续 UPDATE 受 CHECK 检查；实际收到的 L268-L270 直接支持。"
+      },
+      {
+        "index": 3,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": true,
+        "comment": "正确说明 VALIDATE 扫描旧行、取得 SHARE UPDATE EXCLUSIVE，普通并发更新无需被排斥，因为其他事务插入或更新行已检查约束。L316-L318 和 L724-L736 都在 received_windows 内；虽然 L320 未读，实际已读且引用的 L730-L732 是等效且完整的锁及并发原因证据。"
+      }
+    ],
+    "material_errors": [],
+    "source_requirement_met": true,
+    "citation_supported": true,
+    "strict_pass": true,
+    "reason": "两个判断均正确否定，三个必要事实与实际读到并引用的官方文档吻合。SHARE UPDATE EXCLUSIVE 的证据可由已读 L730-L732 等效支持，无须强求未读 L320。额外提到该锁与 CREATE INDEX CONCURRENTLY 同级、兼容普通 INSERT/UPDATE/DELETE，与冻结 explicit-locking 文档一致，未发现实质额外错误。",
+    "evidence_paths_checked": [
+      "docs/sql-altertable.txt",
+      "docs/explicit-locking.txt"
+    ]
+  },
+  {
+    "blind_id": "E012",
+    "assessable": true,
+    "fact_results": [
+      {
+        "index": 1,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": false,
+        "comment": "结论正确：WHERE 为 false 不能推出没锁过，锁行在 WHERE 求值之前。实际收到并引用的 L2532-L2542 仅直接证明锁行调用，已读 L2499-L2507 注释也支持锁后更新的一般路径，但没有实际收到 WHERE 求值 L2662；因此尚未按题干要求以实际执行器条件分支核验相对顺序。"
+      },
+      {
+        "index": 2,
+        "covered": false,
+        "correct": false,
+        "evidence_supported": false,
+        "comment": "没有实际核验或给出 ExecQual(onConflictSetWhere, ...) 不通过即 return true，也没有说明它跳过后续 ExecProject 及 ExecUpdate 的具体控制流。实际收到范围止于 L2580，未覆盖 L2662-L2667 和 L2691-L2707；L2491-L2493 是 ExecUpdate 尾部 RETURNING 处理，不能单独证明冲突 WHERE 的早退路径。"
+      },
+      {
+        "index": 3,
+        "covered": true,
+        "correct": true,
+        "evidence_supported": false,
+        "comment": "WHERE 不满足的已有行不进入 RETURNING，结论正确，但未读 docs/sql-insert.txt:L50-L55，源码 WHERE 早退及其调用 ExecUpdate 的路径也未读。已引 L2491-L2493 只说明函数尾部如何处理 RETURNING，缺少本行在 WHERE false 时无法到达该处的实际已读证据。"
+      }
+    ],
+    "material_errors": [
+      "在明确承认 WHERE 逻辑不在已读片段中的同时，仍断言 ExecUpdate 仅在 onConflictSetWhere 为 NULL 或 ExecQual 为 true 时执行，并据此宣称已用源码证明 WHERE false 不进入 RETURNING。该关键控制流扩写没有实际收到 L2662-L2667 与 L2691-L2707 的支持；L2491-L2493 的尾部 RETURNING 调用及不存在相反证据都不能替代早退路径的核验。"
+    ],
+    "source_requirement_met": false,
+    "citation_supported": false,
+    "strict_pass": false,
+    "reason": "答案的锁行和不返回结论与真实语义一致，但本题要求文档加实际执行器代码核验先后关系：没有任何实际收到的文档证据，也没有读到 WHERE 判断、return true 或投影/ExecUpdate 调用分支。只读到锁行与另一函数的 RETURNING 尾部，不足以支持完整因果链；故逐项记录正确结论但证据不齐，严格不通过。",
+    "evidence_paths_checked": [
+      "docs/sql-insert.txt",
+      "code/src/backend/executor/nodeModifyTable.c"
+    ]
+  }
+]

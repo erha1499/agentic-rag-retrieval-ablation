@@ -1,0 +1,190 @@
+﻿题号,组别,问题,题型,难度,场景,预期行为,运行状态,已执行,可评分,已评审,严格通过,覆盖且正确事实数,有支持覆盖事实数,必要事实数,证据支持,模型输入token,模型输出token,在线费用下界元,在线费用上界元,费用未知请求,在途请求,HTTP失败请求,耗时秒,工具调用数,grep次数,全文读取次数,范围读取次数,RAG次数,工具返回字符数,评审理由,最终回答
+N01,A,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。同一事务里两次建立同名保存点 SAVEPOINT s，后一次会销毁前一次吗？执行 RELEASE SAVEPOINT s 后，再执行 ROLLBACK TO s 指向哪一个？只讨论同名保存点的选择规则。,doc,easy,small_doc,answer,complete,True,True,True,True,2,2,2,True,42675,927,0.035994000000000005,0.035994000000000005,0,0,0,26.4,3,3,0,0,0,47913,全部必要事实齐全正确，使用的文档范围均在received_windows内，最终完整路径行号引用能直接支持对应结论；额外提及ROLLBACK TO销毁目标之后的保存点也与已读sql-rollback-to.txt:L16一致。未发现重要额外错误，严格通过。,"关键证据已定位：
+
+- `docs/sql-savepoint.txt:L21-L22` 明确说明：  
+  > If savepoints with the same name already exist, they will be **inaccessible until newer identically-named savepoints are released**.
+
+- `docs/sql-savepoint.txt:L85-L89`（SQL 兼容性说明）指出：  
+  > SQL requires a savepoint to be destroyed automatically when another savepoint with the same name is established. In PostgreSQL, the **old savepoint is kept**, though only the **more recent one will be used** when rolling back or releasing. (Releasing the newer savepoint with `RELEASE SAVEPOINT` will cause the older one to again become accessible...)
+
+- `docs/sql-release-savepoint.txt:L30-L31` 进一步确认：  
+  > If multiple savepoints have the same name, **only the most recently defined unreleased one is released**. Repeated commands will release progressively older savepoints.
+
+- `docs/sql-rollback-to.txt:L16` 补充：  
+  > `ROLLBACK TO SAVEPOINT` implicitly destroys all savepoints that were established **after** the named savepoint.
+
+---
+
+### 2. `RELEASE SAVEPOINT s` 后，`ROLLBACK TO s` 指向哪一个？
+
+由上述文档可知：
+- `RELEASE SAVEPOINT s` 仅释放**最新生效的同名保存点**（即最近一次 `SAVEPOINT s` 创建的），并使**前一个同名保存点重新变为可访问**；
+- `ROLLBACK TO s` 总是作用于当前**最新生效的、未被释放的同名保存点**（即栈顶最近未被 `RELEASE` 的 `s`）；
+- 因此，`RELEASE SAVEPOINT s` 后再执行 `ROLLBACK TO s`，将回滚到**前一个（更早创建的）同名保存点**。
+
+该行为在 `docs/sql-savepoint.txt:L87-L88` 中明确描述：  
+> Releasing the newer savepoint with `RELEASE SAVEPOINT` will cause the older one to again become accessible to `ROLLBACK TO SAVEPOINT`...
+
+---
+
+### ✅ 最终结论（附准确行号）
+
+1. **同名保存点不销毁前一次，而是“遮蔽”**：后建同名保存点会使前一个同名保存点**暂时不可访问**，但未销毁；前一个仍存在于保存点栈中。  
+   【docs/sql-savepoint.txt:L21-L22】  
+   【docs/sql-savepoint.txt:L85-L89】
+
+2. **`RELEASE SAVEPOINT s` 后，`ROLLBACK TO s` 指向被释放保存点之前的那个同名保存点**：`RELEASE` 使前一个同名保存点**重新变为可访问**，后续 `ROLLBACK TO s` 即作用于它。  
+   【docs/sql-savepoint.txt:L87-L88】  
+   【docs/sql-release-savepoint.txt:L30-L31】"
+N01,B,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。同一事务里两次建立同名保存点 SAVEPOINT s，后一次会销毁前一次吗？执行 RELEASE SAVEPOINT s 后，再执行 ROLLBACK TO s 指向哪一个？只讨论同名保存点的选择规则。,doc,easy,small_doc,answer,complete,True,True,True,True,2,2,2,True,9188,821,0.013008400000000002,0.013008400000000002,0,0,0,22.098,3,2,0,0,1,8772,根代理审裁：开头明确docs/sql-savepoint.txt:L85–L109并逐字引用85–89真实段落，另有release-savepoint:L30–L32正确出处，必要事实全对且实际已读。总结括号95–98错位保留为定位精度问题；按等效有效出处规则，整体已有充分可核验支持，严格通过。,"关键证据来自 `docs/sql-savepoint.txt`（L85–L109）：
+
+> **SQL requires a savepoint to be destroyed automatically when another savepoint with the same name is established. In PostgreSQL, the old savepoint is kept, though only the more recent one will be used when rolling back or releasing. (Releasing the newer savepoint with RELEASE SAVEPOINT will cause the older one to again become accessible to ROLLBACK TO SAVEPOINT and RELEASE SAVEPOINT.)**
+
+→ 同名后建的 SAVEPOINT **不销毁**前一个，而是“遮蔽”（shadow）它；旧保存点仍存在，但不可见，直到新保存点被 `RELEASE`。
+
+---
+
+**2. `RELEASE SAVEPOINT s` 后，再执行 `ROLLBACK TO s` 指向哪一个？**
+
+同上文档段落明确说明：  
+> “Releasing the newer savepoint with RELEASE SAVEPOINT will cause the older one to again become accessible to ROLLBACK TO SAVEPOINT…”
+
+即：`RELEASE SAVEPOINT s` 会移除**最新未释放的同名保存点**，之后 `ROLLBACK TO s` 将作用于**前一个同名保存点**（若存在）。
+
+该行为在 `docs/sql-release-savepoint.txt` 中亦有佐证（L30–L32）：  
+> “If multiple savepoints have the same name, only the most recently defined unreleased one is released. Repeated commands will release progressively older savepoints.”
+
+→ `RELEASE SAVEPOINT s` 总是释放**最新生效的同名保存点**；释放后，`ROLLBACK TO s` 自动指向**下一个更老的同名保存点**（若存在），否则报错。
+
+---
+
+✅ 结论（全部引自官方文档）：
+
+- 同一事务中两次 `SAVEPOINT s`，后一次**不销毁**前一次，仅使其暂时不可见【docs/sql-savepoint.txt:L95-L97】；  
+- `RELEASE SAVEPOINT s` 释放**最新未释放的同名保存点**，释放后 `ROLLBACK TO s` 指向**前一个同名保存点**（若存在）【docs/sql-savepoint.txt:L97-L98】【docs/sql-release-savepoint.txt:L30-L32】；  
+- 同名保存点按“栈式 LIFO”管理：`ROLLBACK TO` / `RELEASE` 均作用于**最新生效（最近建立且未释放）者**；  
+- 无同名保存点可用时，`ROLLBACK TO s` 报错（`savepoint \""s\"" does not exist`）。"
+N02,A,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。对已有表加入 CHECK (price > 0) NOT VALID。有人说这会暂时允许新插入 price=-1，且随后 VALIDATE CONSTRAINT 必须全程挡住普通 UPDATE。这两个判断是否正确？请说明 NOT VALID 跳过的工作，以及随后 VALIDATE 的扫描、表锁和并发更新行为。,doc,medium,large_doc_narrow,answer,complete,True,True,True,True,3,3,3,True,11522,753,0.0107236,0.0107236,0,0,0,18.444,1,1,0,0,0,28544,两个判断均正确否定，三个必要事实与实际读到并引用的官方文档吻合。SHARE UPDATE EXCLUSIVE 的证据可由已读 L730-L732 等效支持，无须强求未读 L320。额外提到该锁与 CREATE INDEX CONCURRENTLY 同级、兼容普通 INSERT/UPDATE/DELETE，与冻结 explicit-locking 文档一致，未发现实质额外错误。,"我们聚焦 `sql-altertable.txt` 中关于 `NOT VALID` 和 `VALIDATE CONSTRAINT` 的权威定义（这是对表级 CHECK 约束最相关的文档）：
+
+- `NOT VALID` **跳过的工作**：  
+  【docs/sql-altertable.txt:L266-L272】明确指出：  
+  > “Normally, this form will cause a scan of the table to verify that all existing rows in the table satisfy the new constraint. But if the NOT VALID option is used, this potentially-lengthy scan is skipped.”  
+  > “The constraint will still be enforced against subsequent inserts or updates [...] But the database will not assume that the constraint holds for all rows in the table, until it is validated [...]”
+
+  ✅ 因此，`CHECK (price > 0) NOT VALID` **不会跳过新插入/更新的检查** —— 它**仍严格拒绝** `price = -1` 的 INSERT/UPDATE。  
+  ❌ 所谓“暂时允许新插入 price=-1”是**错误的**。
+
+- `VALIDATE CONSTRAINT` 的行为：  
+  【docs/sql-altertable.txt:L316-L318】：  
+  > “This form validates a foreign key or check constraint that was previously created as NOT VALID, by scanning the table to ensure there are no rows for which the constraint is not satisfied.”  
+
+  【docs/sql-altertable.txt:L724-L736】关键说明：  
+  > “The validation step does not need to lock out concurrent updates, since it knows that other transactions will be enforcing the constraint for rows that they insert or update; only pre-existing rows need to be checked. Hence, validation acquires only a SHARE UPDATE EXCLUSIVE lock on the table being altered.”  
+
+  ✅ 因此，`VALIDATE CONSTRAINT` **不阻塞普通 UPDATE**；它只持 `SHARE UPDATE EXCLUSIVE` 锁（与 `CREATE INDEX CONCURRENTLY` 同级），允许并发 DML（INSERT/UPDATE/DELETE）。  
+  ❌ 所谓“必须全程挡住普通 UPDATE”是**错误的**。
+
+---
+
+**结论（全部基于文档原文）：**  
+1. ❌ 错误：`NOT VALID` **不豁免**新行检查，`price = -1` 的 INSERT/UPDATE 仍被立即拒绝。  
+2. ❌ 错误：`VALIDATE CONSTRAINT` 使用 `SHARE UPDATE EXCLUSIVE` 锁，**不阻塞**并发 UPDATE。  
+3. ✅ `NOT VALID` 仅跳过**全表扫描验证历史数据**（L266–L267），但约束本身对新数据始终生效（L268–L270）。  
+4. ✅ `VALIDATE CONSTRAINT` 仅扫描旧数据，且并发安全（L730–L732），其锁强度远低于 `ACCESS EXCLUSIVE`（如普通 `ADD CONSTRAINT` 所需）。"
+N02,B,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。对已有表加入 CHECK (price > 0) NOT VALID。有人说这会暂时允许新插入 price=-1，且随后 VALIDATE CONSTRAINT 必须全程挡住普通 UPDATE。这两个判断是否正确？请说明 NOT VALID 跳过的工作，以及随后 VALIDATE 的扫描、表锁和并发更新行为。,doc,medium,large_doc_narrow,answer,complete,True,True,True,False,2,1,3,False,104387,1271,0.0860516,0.0860516,0,0,0,37.321,7,5,0,2,0,54396,题干要求本地 PostgreSQL 官方语料，并未禁止源码，因此不因使用 tablecmds.c 而单独判来源不符。但新写入生效的引用是域约束文档，表约束的直接说明未实际收到；验证扫描、锁与并发的回答还包含未读扩写、AccessExclusiveLock 实质错误和相互矛盾的判断。故必要事实2的结论虽正确却缺实际适用证据，必要事实3不正确且支持不足。,"✅ **结论总结（全部基于 PostgreSQL 17.0 官方语料）：**
+
+1. **`CHECK ... NOT VALID` 允许新插入 `price = -1`？**  
+　　❌ **错误**。文档明确：“Newly inserted or updated rows are always checked against all constraints, even those marked NOT VALID.”  
+　　【docs/sql-alterdomain.txt:L46-L47】  
+　　`NOT VALID` 仅跳过对**现有数据的扫描验证**，不豁免 DML 时的约束检查。
+
+2. **`VALIDATE CONSTRAINT` 是否全程挡住普通 `UPDATE`？**  
+　　❌ **错误**。`VALIDATE CONSTRAINT` 本身仅获取 `ShareUpdateExclusiveLock`（非排他锁），且**不立即扫描表**；它将验证任务排队至 phase 3，由后续阶段执行扫描。  
+　　【code/src/backend/commands/tablecmds.c:L4657-L4658】（锁模式）  
+　　【code/src/backend/commands/tablecmds.c:L11690-L11705】（排队逻辑，无扫描）
+
+3. **`VALIDATE CONSTRAINT` 的扫描与并发行为：**  
+　　- 扫描发生在 phase 3，使用 MVCC 快照读取全表（不阻塞 `INSERT`/`UPDATE`/`DELETE`），但需持有 `AccessExclusiveLock` **仅在更新 `pg_constraint.convalidated = true` 的瞬间**（【L11717-L11720】）。  
+　　- 文档未说明 phase 3 扫描锁类型，源码中未定位到实际扫描函数（`validate_check_constraint` 未定义），故**无法确认扫描期间是否加表级锁或是否阻塞并发 UPDATE**；仅知其不使用 `AccessExclusiveLock` 全程持有。  
+　　→ 该部分行为**证据不足，无法完全核验**。
+
+4. **`NOT VALID` 跳过的工作：**  
+　　仅跳过对**已有行的全表扫描验证**，不跳过任何 DML 约束检查、不跳过索引构建、不降低锁级别。  
+　　【docs/sql-altertable.txt:L266-L267】"
+N03,A,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。INSERT ... ON CONFLICT DO UPDATE ... WHERE 条件对某条已发现的冲突行求值为 false。能否据此推断这条已有行没有被锁过？RETURNING 会不会包含该行？请同时用文档和实际执行器代码核验锁行、WHERE 求值、更新/返回的先后顺序；不需要讨论推测插入的并发重试。,mixed,hard,mixed,answer,complete,True,True,True,False,2,0,3,False,37945,1378,0.033112,0.033112,0,0,0,36.23,9,6,0,3,0,14488,答案的锁行和不返回结论与真实语义一致，但本题要求文档加实际执行器代码核验先后关系：没有任何实际收到的文档证据，也没有读到 WHERE 判断、return true 或投影/ExecUpdate 调用分支。只读到锁行与另一函数的 RETURNING 尾部，不足以支持完整因果链；故逐项记录正确结论但证据不齐，严格不通过。,"- 冲突行**必然被锁**：源码注释明确“lock tuple for update”在 `table_tuple_lock` 调用（L2538–L2542）中完成，且该调用位于 `onConflictSetWhere`（即 WHERE 子句）求值之前；【code/src/backend/executor/nodeModifyTable.c:L2532-L2542】  
+- WHERE 为 false 时**该行不进入 RETURNING**：`ExecProcessReturning` 仅在 `ExecUpdate` 成功后被调用（L2491–L2493），而 `ExecUpdate` 仅当 `onConflictSetWhere` 为 NULL 或 `ExecQual(...)` 为 true 时才执行（该逻辑未在已读片段中出现，但 L2520 定义 `onConflictSetWhere` 为 WHERE 子句，且无证据显示其 false 时仍调用 `ExecProcessReturning`）；【code/src/backend/executor/nodeModifyTable.c:L2491-L2493】  
+- 文档路径 `docs/sql-insert.html` **未在语料中找到**（`grep(files_only=true)` 返回空列表），无法引用其任何行。"
+N03,B,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。INSERT ... ON CONFLICT DO UPDATE ... WHERE 条件对某条已发现的冲突行求值为 false。能否据此推断这条已有行没有被锁过？RETURNING 会不会包含该行？请同时用文档和实际执行器代码核验锁行、WHERE 求值、更新/返回的先后顺序；不需要讨论推测插入的并发重试。,mixed,hard,mixed,answer,complete,True,True,True,False,3,3,3,False,78587,1062,0.06912410000000001,0.06912410000000001,0,0,0,31.083,5,2,0,2,1,57335,核心问题的锁行、WHERE和提前返回顺序，以及RETURNING不包含该行均答对，文档与实现也确实均被读到。但docs/sql-insert.txt:L60-L64是权限段落，准确支持应在已读L50-L55；并且答案额外把锁模式一概说成LockTupleExclusive，源码存在LockTupleNoKeyExclusive分支。不能因主要结论正确而忽略引用错误与重要额外实现错误，严格不通过。,"关键逻辑清晰呈现（`nodeModifyTable.c`）：
+
+- **L2538–L2542**：调用 `table_tuple_lock(...)` —— **冲突行在任何 WHERE 求值前已被加锁（LockTupleExclusive）**。  
+- **L2662–L2667**：`ExecQual(onConflictSetWhere, econtext)` 求值 `WHERE` 条件；若为 `false`，则 `ExecClearTuple(existing)` 并 `return true`（即“处理完成”，但不更新）。  
+- **L2704–L2707**：仅当 `WHERE` 为 `true` 时才调用 `ExecUpdate()`，该函数内部会执行 `RETURNING` 投影（见其调用链）。  
+- 文档已明确：“if a row was locked but not updated because ... WHERE clause condition was not satisfied, the row will not be returned.”  
+
+✅ **结论**：  
+1. **该冲突行一定被锁过**（`table_tuple_lock` 在 `WHERE` 前执行）【code/src/backend/executor/nodeModifyTable.c:L2538-L2542】；  
+2. **该行不会出现在 `RETURNING` 中**（`WHERE` 为 `false` 时跳过 `ExecUpdate()`，且文档与代码均无 `RETURNING` 投影逻辑）【code/src/backend/executor/nodeModifyTable.c:L2662-L2667】【docs/sql-insert.txt:L60-L64】；  
+3. **严格顺序为：锁行 → 求值 WHERE → （仅当 true）执行 UPDATE + RETURNING**。"
+N04,A,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只核验源码函数 ExecUpdateLockMode：它用哪两个列集合决定 UPDATE 的元组锁强度？有交集和无交集分别返回什么锁模式？请引用实际条件分支，不要仅用锁的一般定义解释。,code,easy,code_verify,answer,complete,True,True,True,False,1,1,2,False,7313,458,0.0067664000000000005,0.0067664000000000005,0,0,0,11.606,2,1,0,1,0,4875,实际读到并引用了目标源码函数完整条件分支，两个返回常量正确；但列集合的额外解释扩大了真实 keyCols 范围，并给出错误的 SELECT FOR UPDATE 并发示例，影响题目要求核验的锁强度含义，不能严格通过。,"`ExecUpdateLockMode` 函数依据两个列集合的交集关系决定锁强度：
+
+1. **两个列集合**：  
+   - `keyCols`：由 `RelationGetIndexAttrBitmap(relinfo->ri_RelationDesc, INDEX_ATTR_BITMAP_KEY)` 获取，即该表所有**索引键列（含主键、唯一约束等）的位图**；  
+   - `updatedCols`：由 `ExecGetAllUpdatedCols(relinfo, estate)` 获取，即当前 `UPDATE` 语句中**实际被修改的列的位图**。  
+   【code/src/backend/executor/execMain.c:L2363-L2365】
+
+2. **有交集时返回 `LockTupleExclusive`**：  
+   若 `bms_overlap(keyCols, updatedCols)` 为真（即至少一个被更新列属于索引键），则返回排他锁，防止并发更新破坏索引一致性。  
+   【code/src/backend/executor/execMain.c:L2367-L2368】
+
+3. **无交集时返回 `LockTupleNoKeyExclusive`**：  
+   若二者无重叠（`updatedCols` 中所有列均非索引键），则返回“无键排他锁”，允许更高并发（如不阻塞仅读取非键列的 `SELECT FOR UPDATE`）。  
+   【code/src/backend/executor/execMain.c:L2370】"
+N04,B,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只核验源码函数 ExecUpdateLockMode：它用哪两个列集合决定 UPDATE 的元组锁强度？有交集和无交集分别返回什么锁模式？请引用实际条件分支，不要仅用锁的一般定义解释。,code,easy,code_verify,answer,complete,True,True,True,True,2,2,2,True,14490,757,0.013106000000000001,0.013106000000000001,0,0,0,19.085,2,1,0,1,0,8331,根代理审裁：两必要事实与精确API/实际分支引用完整正确。keyCols中文概括不够精确，但未明示全部或非唯一索引，紧邻准确INDEX_ATTR_BITMAP_KEY接口；不把进一步展开relcache子集定义作为题干未要求的隐藏条件。保留术语精度备注，严格通过。,"`ExecUpdateLockMode` 依据以下两个列集合判定锁强度：  
+- `keyCols`：表的索引键列（含主键、唯一约束列），由 `RelationGetIndexAttrBitmap(..., INDEX_ATTR_BITMAP_KEY)` 计算；  
+- `updatedCols`：当前 `UPDATE` 实际修改的列，由 `ExecGetAllUpdatedCols()` 获取。  
+【code/src/backend/executor/execMain.c:L2364-L2365】  
+【code/src/backend/executor/execMain.c:L2363】  
+
+若二者存在交集（`bms_overlap(keyCols, updatedCols)` 为真），返回 `LockTupleExclusive`；  
+【code/src/backend/executor/execMain.c:L2367-L2368】  
+
+否则返回 `LockTupleNoKeyExclusive`。  
+【code/src/backend/executor/execMain.c:L2370】  
+
+函数无其他分支，未使用 `relinfo->ri_WithCheckOptions`、触发器列或 `estate->es_instrument` 等字段；源码中未见对 `ctid`、系统列或 `FOR KEY SHARE` 等场景的特殊处理，亦未调用 `ExecGetReturningRows` 或涉及分区键逻辑。所读范围（L2349–L2371）已覆盖函数全部实现，无截断。"
+N05,A,"请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只沿 PostgreSQL 17.0 实际源码说明 pg_terminate_backend(pid, timeout)：timeout=0 时返回 true，是否保证目标进程已经退出？0<timeout≤INT_MAX 的普通正毫秒值时怎样等待、何时返回 true 或 false？本题不讨论超大参数的类型转换。请追到实际等待辅助函数，假定调用者有权限且发送终止信号成功。",code,medium,code_verify,answer,complete,True,True,True,False,1,1,3,False,21853,927,0.0193364,0.0193364,0,0,0,23.891,5,2,0,3,0,9245,非空答案，源码辅助函数和主要返回分支基本正确，已读全文支持大部分解释；但没有交代 WaitLatch，且对普通正超时的实际耗时上限表述超出实现保证。SIGTERM 具体调用在已读 L230，所列零超时引文 L249-L250 仅覆盖返回分支。引用 L172 单行本身有效，不因其格式扣分。真实时间上限及零超时引文边界均已通知根代理复核。,"完整逻辑如下：
+
+- `pg_wait_until_termination` 以 **100ms 步长**（L154）轮询 `kill(pid, 0)` 检查进程是否存在（L172）；
+- 若 `kill(pid, 0)` 返回 `-1` 且 `errno == ESRCH`（进程不存在），立即 `return true`（L174–L175）；
+- 若超时（`remainingtime <= 0`），发出 `WARNING` 并 `return false`（L196–L202）；
+- 轮询中会响应中断（`CHECK_FOR_INTERRUPTS`，L184）和 postmaster 死亡（L187）。
+
+综上：
+
+1. **`timeout = 0`**：不进入等待循环，直接返回 `true`；**不保证目标进程已退出**，仅表示 `SIGTERM` 发送成功 【code/src/backend/storage/ipc/signalfuncs.c:L249-L250】。  
+2. **`0 < timeout ≤ INT_MAX`（毫秒）**：调用 `pg_wait_until_termination`，以最多 `timeout` 毫秒为限、每 100ms 检查一次进程是否消失；若在时限内确认进程终止（`ESRCH`），返回 `true`；否则超时返回 `false` 【code/src/backend/storage/ipc/signalfuncs.c:L147-L202】。  
+3. **实际等待辅助函数是 `pg_wait_until_termination`**，其核心检测机制为 `kill(pid, 0)` 系统调用 【code/src/backend/storage/ipc/signalfuncs.c:L172】。"
+N05,B,"请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。只沿 PostgreSQL 17.0 实际源码说明 pg_terminate_backend(pid, timeout)：timeout=0 时返回 true，是否保证目标进程已经退出？0<timeout≤INT_MAX 的普通正毫秒值时怎样等待、何时返回 true 或 false？本题不讨论超大参数的类型转换。请追到实际等待辅助函数，假定调用者有权限且发送终止信号成功。",code,medium,code_verify,answer,complete,True,True,True,False,1,1,3,False,31864,1556,0.0286032,0.0286032,0,0,0,40.743,5,2,0,3,0,11219,有非空答案并追到实际源码辅助函数，零超时和 ESRCH/超时的主干解释正确；但缺少 SIGTERM 调用、WaitLatch/中断处理以及 false 的确认边界。多个附加结论的锚点不完整：最多100ms和调用等待函数分别见已读 L154、L247-L248，而其附近引用只落在 L172-L175/L196-L202。第4点提到完整毫秒范围，按本题限定只理解为普通正毫秒值至 INT_MAX，不以未要求的超大参数转换另行判错；单行引用 L223/L148/L159/L193 均合法。即使根代理接受上述引用边界，本答案仍缺必要事实。,"1. `timeout = 0` 时，函数**不等待也不检查进程是否退出**，仅返回信号是否成功发出（即 `r == SIGNAL_BACKEND_SUCCESS`），不保证目标进程已终止。【code/src/backend/storage/ipc/signalfuncs.c:L247-L250】
+
+2. `0 < timeout ≤ INT_MAX` 时，调用 `pg_wait_until_termination(pid, timeout)` 循环检测：以最多 100ms 步长反复执行 `kill(pid, 0)`；若某次返回 `ESRCH`（进程不存在），立即返回 `true`；若累计等待超时，则发 WARNING 并返回 `false`。【code/src/backend/storage/ipc/signalfuncs.c:L172-L175】、【code/src/backend/storage/ipc/signalfuncs.c:L196-L202】
+
+3. 实际等待逻辑由 `pg_wait_until_termination` 实现，其唯一进程存在性判断依据是 `kill(pid, 0)` 系统调用的 errno 值，无其他辅助函数介入。【code/src/backend/storage/ipc/signalfuncs.c:L172-L175】
+
+4. `timeout` 参数经 `PG_GETARG_INT64(1)` 传入，`pg_wait_until_termination` 签名为 `int64 timeout`，且循环中 `remainingtime` 和 `waittime` 均为 `int64` 类型运算，支持完整毫秒范围（含 `INT_MAX`）。【code/src/backend/storage/ipc/signalfuncs.c:L223】、【code/src/backend/storage/ipc/signalfuncs.c:L148】、【code/src/backend/storage/ipc/signalfuncs.c:L159】、【code/src/backend/storage/ipc/signalfuncs.c:L193】"
+N06,A,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。子计划按 ORDER BY score 升序产生 10、20、30、30、30、40，查询正向执行 FETCH FIRST 3 ROWS WITH TIES，且无 OFFSET。应返回几行？请结合官方语义与 ExecLimit 的实际实现说明如何保存并比较边界行，以及读到第一个不同排序键的元组时如何处理。,mixed,hard,mixed,answer,evidence_validation_failed,True,True,True,False,3,3,3,False,41216,1247,0.0354668,0.0354668,0,0,0,33.474,7,5,0,2,0,30865,"有非空答案，故尽管运行状态为evidence_validation_failed仍逐项评审。五行结果及ExecLimit主要控制流正确且有已读源码支持。但题干要求官方文档语义与实现联合核验，received_windows仅有源码；docs/src/doc/src/sgml/queries.sgml并非冻结语料中的文件，所标L12892-L12898也无实际收到证据。多处【L113, L187】、【L240】、【L245-L248】未给出完整路径，不能当作合规定位；末段另有越出已读实现的扩张断言，严格不通过。","✅ **1. 应返回 5 行**  
+输入序列为 `10,20,30,30,30,40`（升序），`FETCH FIRST 3 ROWS WITH TIES` 要求包含第 3 行（`30`）及其所有相等行（后续两个 `30`），故返回前 5 行。语义定义见：【docs/src/doc/src/sgml/queries.sgml:L12892-L12898】
+
+✅ **2. 边界行保存于 `node->last_slot`，通过 `execTuplesMatchPrepare` 构建的 `eqfunction` 比较**  
+`ExecInitLimit` 在 `LIMIT_OPTION_WITH_TIES` 下初始化 `last_slot` 并调用 `execTuplesMatchPrepare` 构建等值比较表达式（基于 `ORDER BY` 列信息）【code/src/backend/executor/nodeLimit.c:L514-L520】；第 `count` 行（第 3 行）被深拷贝至 `last_slot` 【L113, L187】。
+
+✅ **3. 读到第一个不同排序键时立即终止**  
+进入 `LIMIT_WINDOWEND_TIES` 状态后，逐行调用 `ExecProcNode(outerPlan)` 获取后续元组，并以 `node->last_slot` 为基准、通过 `ExecQualAndReset(node->eqfunction, econtext)` 判断是否“相等”【L240】；**一旦 `ExecQualAndReset` 返回 false（即 `score > 30`），立即设 `lstate = LIMIT_WINDOWEND` 并返回 `NULL`【L245-L248】**，不再继续读取。
+
+✅ **4. 实际比较逻辑由 `execTuplesMatchPrepare` 定义，非简单值比对**  
+该函数生成的 `eqfunction` 执行 `IS NOT DISTINCT FROM` 语义比较（含 NULL 安全），依据 `ORDER BY` 的列数、列索引、操作符族和排序规则构造，确保与排序行为严格一致【code/src/backend/executor/execGrouping.c:L52-L56】。"
+N06,B,请依据本地 PostgreSQL 17.0 官方语料回答，给出实际查阅的文件路径和准确行号。子计划按 ORDER BY score 升序产生 10、20、30、30、30、40，查询正向执行 FETCH FIRST 3 ROWS WITH TIES，且无 OFFSET。应返回几行？请结合官方语义与 ExecLimit 的实际实现说明如何保存并比较边界行，以及读到第一个不同排序键的元组时如何处理。,mixed,hard,mixed,answer,evidence_validation_failed,True,True,True,False,1,1,3,False,31518,1352,0.027918400000000003,0.027918400000000003,0,0,0,34.093,7,4,0,3,0,9431,有非空答案，尽管运行状态是 evidence_validation_failed 仍可逐项评分。五行结果的文档推导正确，但题干同时要求的 ExecLimit 实现没有核验；【code/src/backend/executor/nodeLimit.c: no match】不是可定位源码引用，不能弥补保存、比较及终止分支的缺失。,"根据实际检索到的文档证据：
+
+- `FETCH FIRST 3 ROWS WITH TIES` 语义明确：返回前 3 行及**所有与第 3 行排序键相等的后续行**。输入序列为 `[10,20,30,30,30,40]`，第 3 行为 `30`，后续两个 `30` 须包含，`40` 不同则停止；故返回 **5 行**。【docs/sql-select.txt:L753-L754】  
+- 文档指出 `WITH TIES` 要求 `ORDER BY` 必须存在，且“returns any additional rows that tie for the last place in the result set according to the ORDER BY clause”【docs/sql-select.txt:L753-L754】。  
+- 源码中 `store_last_limit_tuple` 和 `execTiesMatch` 函数**未在检索结果中出现**（`grep` 无匹配），无法确认其存在、调用逻辑或比较机制；当前材料不支持说明“如何保存并比较边界行”及“读到第一个不同排序键时的处理”。【code/src/backend/executor/nodeLimit.c: no match】  
+- 文档未说明实现细节（如是否缓存最后一行、何时终止），仅定义语义；源码关键函数未定位，故边界保存与终止行为**无法从本地语料核验**。"

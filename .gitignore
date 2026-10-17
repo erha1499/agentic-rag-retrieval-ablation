@@ -18,3 +18,4 @@ runs/
 运行状态.json
 local_history/
 outputs/
+.idea/
