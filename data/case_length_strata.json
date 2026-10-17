@@ -1,7 +1,7 @@
 {
   "status": "design_strata_not_empirically_calibrated",
   "definition": "至少一个必要出处来自 ≥3000 英文词的自然文档页或 ≥3000 行（含注释空行）的源码文件。英文词统计包括示例和标识符，不代表中文汉字数。",
-  "case_sha256": "e12725f49faa578d91bbba47b62b868d0dc283c62ab8b06c81861d2594ed44ca",
+  "case_sha256": "2933f4f7bc73dfbfea88d52a2b9dab01c24e02acaf63e0781ab78ce52149637b",
   "by_case": {
     "Q01": {
       "long_material": false,
@@ -34,19 +34,10 @@
       ]
     },
     "Q03": {
-      "long_material": true,
+      "long_material": false,
       "long_docs": [],
-      "long_code_files": [
-        "code/src/backend/executor/nodeModifyTable.c"
-      ],
+      "long_code_files": [],
       "source_lengths": [
-        {
-          "path": "code/src/backend/executor/nodeModifyTable.c",
-          "kind": "code",
-          "words": 18227,
-          "lines": 4759,
-          "chars": 154082
-        },
         {
           "path": "docs/sql-insert.txt",
           "kind": "doc",
@@ -81,24 +72,24 @@
       ]
     },
     "Q05": {
-      "long_material": false,
-      "long_docs": [],
+      "long_material": true,
+      "long_docs": [
+        "docs/functions-admin.txt"
+      ],
       "long_code_files": [],
       "source_lengths": [
         {
-          "path": "code/src/backend/storage/ipc/signalfuncs.c",
-          "kind": "code",
-          "words": 1149,
-          "lines": 291,
-          "chars": 8718
+          "path": "docs/functions-admin.txt",
+          "kind": "doc",
+          "words": 7983,
+          "lines": 768,
+          "chars": 52025
         }
       ]
     },
     "Q06": {
-      "long_material": true,
-      "long_docs": [
-        "docs/sql-select.txt"
-      ],
+      "long_material": false,
+      "long_docs": [],
       "long_code_files": [],
       "source_lengths": [
         {
@@ -107,19 +98,12 @@
           "words": 1699,
           "lines": 558,
           "chars": 14086
-        },
-        {
-          "path": "docs/sql-select.txt",
-          "kind": "doc",
-          "words": 10549,
-          "lines": 1175,
-          "chars": 62275
         }
       ]
     }
   },
   "counts": {
-    "short": 2,
-    "long": 4
+    "short": 3,
+    "long": 3
   }
 }

@@ -1,17 +1,17 @@
 {
-  "version": "natural-1.0",
+  "version": "current",
   "status": "independently_reviewed_not_run",
   "created_utc": "2026-10-17T10:13:26.257174+00:00",
   "database_version": "PostgreSQL 17.0",
-  "question_provenance": "由 scenario-1.0 已运行主题改写为自然语言问法；source_case 记录对应旧题，旧文件版本由 Git 保存。",
+  "question_provenance": "沿用已运行主题，按咨询、脚本使用和源码阅读的实际任务重写；source_case记录旧主题，旧文件由Git保存。不是新的独立保留测试集。",
   "files": {
     "cases_dev.json": {
       "count": 2,
-      "sha256": "a26ad51b98ceff7010ca75322b4e7becc0185953f26f4464eec4d9a89141a53b"
+      "sha256": "fcbbd32b667f23ae27e07f6c2c4f0602f77de0502a6913de5353cfb37f8f57e6"
     },
     "cases_test.json": {
       "count": 6,
-      "sha256": "e12725f49faa578d91bbba47b62b868d0dc283c62ab8b06c81861d2594ed44ca"
+      "sha256": "2933f4f7bc73dfbfea88d52a2b9dab01c24e02acaf63e0781ab78ce52149637b"
     }
   },
   "corpus_manifest_sha256": "8c5979aa708c38adf6c02f14b3cb59721fbe9ece5294e9349efe8a593ec926c8",
@@ -19,8 +19,7 @@
   "retrieval_skill": "skills/检索流程/技能.md",
   "agent_input": "只有 question 作为用户消息；题号、类型、难度、场景、金标准和证据位置只供设计及评审，不注入系统提示词、Skill 或用户消息。",
   "formal_kind_counts": {
-    "doc": 2,
-    "mixed": 2,
+    "doc": 4,
     "code": 2
   },
   "formal_difficulty_counts": {
@@ -30,8 +29,7 @@
   },
   "formal_scenario_counts": {
     "small_doc": 1,
-    "large_doc_narrow": 1,
-    "mixed": 2,
+    "large_doc_narrow": 3,
     "code_verify": 2
   },
   "difficulty_status": "低、中、高各两题是设计分层；自然语言改写后的实际检索难度未经运行验证。",
@@ -43,7 +41,7 @@
   },
   "evaluation_policy": [
     "仅 required_facts 是必要事实；reference_notes 解释对应机制和边界，不逐字要求 SQL、函数、变量或枚举名称。允许等价事实及有效替代证据。",
-    "源码与联合题仍需用实际实现支持底层解释；Q03、Q06 分别核验文档规则与实现。",
+    "Q04、Q06和QDEV01明确询问实现，需要实际源码支持；其他使用语义问题允许文档或源码的有效证据。类型标签不增加题干未问的细节或双来源门槛。",
     "QDEV02 允许合理澄清和带条件建议，不强制默认值或完全拒答；开发题不混入正式六题通过率。",
     "A/B 共用同一系统提示词和检索 Skill 定义；唯一组间能力差异是 B 增加 rag_search。",
     "题集、系统提示词、Skill、运行配置由统一冻结清单记录。新运行使用独立目录与费用账本，不覆盖历史回答，也不复用旧评分。",
@@ -51,7 +49,7 @@
   ],
   "required_fact_count": {
     "dev": 4,
-    "test": 16
+    "test": 13
   },
   "evidence_hash_format": "UTF-8；按起止行（含两端）取原文，使用换行符连接，不附加末尾换行。",
   "evidence_hashes": [
@@ -128,30 +126,6 @@
       "excerpt_sha256": "5881a5440630e910fe3b306a518023113cb5907b4fcdf815a0276d5ab1e82413"
     },
     {
-      "case_id": "Q03",
-      "path": "code/src/backend/executor/nodeModifyTable.c",
-      "start_line": 2529,
-      "end_line": 2547,
-      "why": "执行器先锁行",
-      "excerpt_sha256": "7657934b5367addc788408de6da8c959cf22c20589eee12665b4165f32063325"
-    },
-    {
-      "case_id": "Q03",
-      "path": "code/src/backend/executor/nodeModifyTable.c",
-      "start_line": 2651,
-      "end_line": 2667,
-      "why": "WHERE检查失败直接结束此元组",
-      "excerpt_sha256": "8637eeadc1bfa7d863a5707fdba439cd510980af7b6e1e90362347003b29437a"
-    },
-    {
-      "case_id": "Q03",
-      "path": "code/src/backend/executor/nodeModifyTable.c",
-      "start_line": 2691,
-      "end_line": 2707,
-      "why": "成功路径才投影和调用ExecUpdate",
-      "excerpt_sha256": "638555f406ac7705f29367465c9532878394b1d6fb5440f18f3af026d3e6623f"
-    },
-    {
       "case_id": "Q04",
       "path": "code/src/backend/executor/execMain.c",
       "start_line": 2349,
@@ -185,35 +159,11 @@
     },
     {
       "case_id": "Q05",
-      "path": "code/src/backend/storage/ipc/signalfuncs.c",
-      "start_line": 205,
-      "end_line": 230,
-      "why": "零超时仅发信号，实际SIGTERM调用",
-      "excerpt_sha256": "1d4555e4a948bd8af4db904e0f33ce67329fab9534b72a06101e14e22d3cf814"
-    },
-    {
-      "case_id": "Q05",
-      "path": "code/src/backend/storage/ipc/signalfuncs.c",
-      "start_line": 246,
-      "end_line": 250,
-      "why": "正超时调用等待辅助函数",
-      "excerpt_sha256": "b3f3b5d8582360177974dc3480feda788a21c2f808271665d02606f56a70fa19"
-    },
-    {
-      "case_id": "Q05",
-      "path": "code/src/backend/storage/ipc/signalfuncs.c",
-      "start_line": 148,
-      "end_line": 202,
-      "why": "存在性轮询、等待及超时返回",
-      "excerpt_sha256": "efcf28b4b2e52f995f69ada6c526fe0615a749776e64ad47d9e5b6be85a1921d"
-    },
-    {
-      "case_id": "Q06",
-      "path": "docs/sql-select.txt",
-      "start_line": 744,
-      "end_line": 755,
-      "why": "WITH TIES按ORDER BY末位扩大结果",
-      "excerpt_sha256": "a6ea7c5c8f3e5e0461815454b353f092ebc1e2ec44d3ea09a48a80d9af46d466"
+      "path": "docs/functions-admin.txt",
+      "start_line": 55,
+      "end_line": 64,
+      "why": "终止连接在零等待及正等待时的返回值含义",
+      "excerpt_sha256": "7db851a65847687dda27b403c5c4e2e7e3c39f2402e3a3d470980d2168544c25"
     },
     {
       "case_id": "Q06",
@@ -240,25 +190,30 @@
     "executed_tasks": 0,
     "new_qwen_api_calls": 0,
     "source_hashes_match_approved_corpus": true,
-    "source_file_count": 11,
-    "evidence_range_count": 22
+    "source_file_count": 9,
+    "evidence_range_count": 16
   },
   "independent_static_review": {
-    "reviewed_utc": "2026-10-17T10:15:21.482523+00:00",
-    "reviewer": "natural_question_review",
-    "scope": "题意、自然程度、金标准范围、源码与文档支持、文件及证据哈希",
+    "reviewed_utc": "2026-10-17T11:31:18.914013+00:00",
+    "reviewer": "human_question_edit",
+    "scope": "任务语境、自然程度、必要前提、金标准范围及本地原文支持",
     "case_results": {
+      "QDEV01": "pass",
+      "QDEV02": "pass",
       "Q01": "pass",
       "Q02": "pass",
       "Q03": "pass",
       "Q04": "pass",
       "Q05": "pass",
-      "Q06": "pass",
-      "QDEV01": "pass",
-      "QDEV02": "pass"
+      "Q06": "pass"
     },
     "agent_answers_or_scores_read": false,
-    "resolved_issue": "Q05未询问计时精度，已把不能保证精确经过一秒移到reference_notes，不作为额外必答项。",
-    "limit": "代理静态验题，不是人工实测或新的盲测结果。"
-  }
+    "resolved_issues": [
+      "Q03明确为插入语句的冲突更新，避免把应用层比较版本作为隐含前提。",
+      "Q02仅要求零或负金额被拒绝，不引入未提问的NULL考点。",
+      "普通使用问题不再为凑题型强加源码追问；只按实际问题范围评分。"
+    ],
+    "limit": "代理静态验题，未做用户调查、真实检索或新的盲测。"
+  },
+  "updated_utc": "2026-10-17T11:31:18.914013+00:00"
 }
