@@ -1,0 +1,273 @@
+{
+  "version": "natural-1.0",
+  "status": "independently_reviewed_not_run",
+  "created_utc": "2026-10-17T10:13:26.257174+00:00",
+  "database_version": "PostgreSQL 17.0",
+  "source_version": "scenario-1.0",
+  "source_files": {
+    "cases_dev.json": {
+      "count": 2,
+      "sha256": "db7a9c98a417edbdc358f4159964717ed210cbac41a0ab46c49b171abf744100"
+    },
+    "cases_test.json": {
+      "count": 6,
+      "sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a"
+    }
+  },
+  "files": {
+    "cases_dev.json": {
+      "count": 2,
+      "sha256": "751840a7321142122588cc203d370e2cc291c29bec62591c572b0d6af9207de9"
+    },
+    "cases_test.json": {
+      "count": 6,
+      "sha256": "019317589e31215fc3e114b9b5fbd6d875fb4872e3147b5a933c43eacb6e3647"
+    }
+  },
+  "corpus_manifest_sha256": "8c5979aa708c38adf6c02f14b3cb59721fbe9ece5294e9349efe8a593ec926c8",
+  "common_prompt": {
+    "path": "prompts/检索流程.md",
+    "sha256": "c0904e357b767f7fb2bd5f3d534d1ba38fc53eadf46a067b74cadc95c51d0133",
+    "policy": "复用同一PostgreSQL17.0环境、来源及引用约束；不在单题重复，A/B完全相同。"
+  },
+  "agent_input": "只有question作为用户消息；其他字段只供设计和评审，不能注入模型。",
+  "formal_kind_counts": {
+    "doc": 2,
+    "mixed": 2,
+    "code": 2
+  },
+  "formal_difficulty_counts": {
+    "easy": 2,
+    "medium": 2,
+    "hard": 2
+  },
+  "difficulty_status": "沿用设计分层，去掉定位词后实际难度未经运行验证。",
+  "authorship_scope": {
+    "all_cases_newly_authored": false,
+    "source_topics_and_agent_answers_already_known_to_editor": true,
+    "independent_reviewer_may_read_prior_answers": false,
+    "limit": "已运行题的自然语言变体，不是新的独立保留测试集；不能沿用旧答案或评分，也不能据此声称无数据污染。"
+  },
+  "evaluation_policy": [
+    "仅required_facts是必要事实；reference_notes解释对应机制和边界，不逐字要求SQL、函数、变量或枚举名称。",
+    "源码与联合题仍需用实际实现支持底层解释，不能把删除函数名理解为免于取证；Q03/Q06联合题分别核验文档规则与实现。",
+    "QDEV02允许合理澄清和带条件建议，不强制默认100或完全拒答；不混入正式六题通过率。",
+    "若后续执行，使用独立运行目录、账本与新冻结清单；不覆盖已完成轮次，不直接替换data根目录题集。",
+    "本次仅改题与静态核验，不产生模型调用；新一轮执行前另定支出上限，不视旧上限余额为本次授权。"
+  ],
+  "runtime_integration": "当前运行器仍读取data/cases_dev.json和data/cases_test.json；本版单独保存，尚未接入新一轮运行。",
+  "required_fact_count": {
+    "dev": 4,
+    "test": 16
+  },
+  "evidence_hashes": [
+    {
+      "case_id": "QDEV01",
+      "path": "code/src/backend/utils/adt/misc.c",
+      "start_line": 375,
+      "end_line": 410,
+      "why": "等待设计说明与完整循环",
+      "excerpt_sha256": "556dd3274a857fefaaf03f2efa3818035d38eea48b31ed1e9ca282ff9af85e73"
+    },
+    {
+      "case_id": "QDEV02",
+      "path": "docs/runtime-config-connection.txt",
+      "start_line": 25,
+      "end_line": 32,
+      "why": "默认不是部署最优值，连接数影响资源分配",
+      "excerpt_sha256": "ed40928f21177dc1aa3292edde65a6e9fac698b8bb6768543a010c220172b022"
+    },
+    {
+      "case_id": "Q01",
+      "path": "docs/sql-savepoint.txt",
+      "start_line": 19,
+      "end_line": 22,
+      "why": "同名保存点的遮蔽",
+      "excerpt_sha256": "0916e06c3725ee7948fe7704cb11429bfc375717cfd094ac4e7f2744d85ddb16"
+    },
+    {
+      "case_id": "Q01",
+      "path": "docs/sql-savepoint.txt",
+      "start_line": 85,
+      "end_line": 89,
+      "why": "保留旧同名点，释放新点后恢复可访问",
+      "excerpt_sha256": "e064841c0d7435e8367a17eb28347e62d853fb04c52246d805ede13a958a9e51"
+    },
+    {
+      "case_id": "Q02",
+      "path": "docs/sql-altertable.txt",
+      "start_line": 261,
+      "end_line": 272,
+      "why": "NOT VALID跳过初始扫描，但后续写入立即受约束",
+      "excerpt_sha256": "8166e28fd6faff19a206c8b62e7191d082a55435f9d2477ee512acfde7165935"
+    },
+    {
+      "case_id": "Q02",
+      "path": "docs/sql-altertable.txt",
+      "start_line": 314,
+      "end_line": 320,
+      "why": "后续验证扫描及锁模式",
+      "excerpt_sha256": "18de4ad9da30e7484f3f6375e8cc3570628014d57d187117feb9b749f5f795c6"
+    },
+    {
+      "case_id": "Q02",
+      "path": "docs/sql-altertable.txt",
+      "start_line": 725,
+      "end_line": 736,
+      "why": "验证不阻止普通并发更新的原因",
+      "excerpt_sha256": "93ec0e8c8e91461143ff586136de952fa6a5afebf695d611ecc17330c24b1309"
+    },
+    {
+      "case_id": "Q03",
+      "path": "docs/sql-insert.txt",
+      "start_line": 50,
+      "end_line": 55,
+      "why": "未更新的冲突行不返回",
+      "excerpt_sha256": "8d56d6a4209fe422d39194023a462b00036a71174687a823de93bad8fc480452"
+    },
+    {
+      "case_id": "Q03",
+      "path": "docs/sql-insert.txt",
+      "start_line": 224,
+      "end_line": 228,
+      "why": "所有候选冲突行先锁定，condition最后求值",
+      "excerpt_sha256": "5881a5440630e910fe3b306a518023113cb5907b4fcdf815a0276d5ab1e82413"
+    },
+    {
+      "case_id": "Q03",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "start_line": 2529,
+      "end_line": 2547,
+      "why": "执行器先锁行",
+      "excerpt_sha256": "7657934b5367addc788408de6da8c959cf22c20589eee12665b4165f32063325"
+    },
+    {
+      "case_id": "Q03",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "start_line": 2651,
+      "end_line": 2667,
+      "why": "WHERE检查失败直接结束此元组",
+      "excerpt_sha256": "8637eeadc1bfa7d863a5707fdba439cd510980af7b6e1e90362347003b29437a"
+    },
+    {
+      "case_id": "Q03",
+      "path": "code/src/backend/executor/nodeModifyTable.c",
+      "start_line": 2691,
+      "end_line": 2707,
+      "why": "成功路径才投影和调用ExecUpdate",
+      "excerpt_sha256": "638555f406ac7705f29367465c9532878394b1d6fb5440f18f3af026d3e6623f"
+    },
+    {
+      "case_id": "Q04",
+      "path": "code/src/backend/executor/execMain.c",
+      "start_line": 2349,
+      "end_line": 2371,
+      "why": "完整函数及两种返回分支",
+      "excerpt_sha256": "2ace7634f490c2e390f0ba96e6ff2c8126b0ef3381645104139af4d39c025c37"
+    },
+    {
+      "case_id": "Q04",
+      "path": "code/src/backend/utils/cache/relcache.c",
+      "start_line": 5219,
+      "end_line": 5224,
+      "why": "键列集合定义",
+      "excerpt_sha256": "5e9ec7b3cc3f0a85e33ad1734d46bed685c63abb719af8ddf344ef8d5a4824a5"
+    },
+    {
+      "case_id": "Q04",
+      "path": "code/src/backend/utils/cache/relcache.c",
+      "start_line": 5358,
+      "end_line": 5361,
+      "why": "唯一、非部分、无表达式的条件",
+      "excerpt_sha256": "1ac1d9ce4a0862ed34093e62946366288bef65dfc8da4dea10adfe213ec2a25b"
+    },
+    {
+      "case_id": "Q04",
+      "path": "code/src/backend/utils/cache/relcache.c",
+      "start_line": 5394,
+      "end_line": 5405,
+      "why": "排除非键INCLUDE列",
+      "excerpt_sha256": "c203b4b108e30e3c18932ddf48cc930b65846251424ae79ea4c486995d0f5a5f"
+    },
+    {
+      "case_id": "Q05",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "start_line": 205,
+      "end_line": 230,
+      "why": "零超时仅发信号，实际SIGTERM调用",
+      "excerpt_sha256": "1d4555e4a948bd8af4db904e0f33ce67329fab9534b72a06101e14e22d3cf814"
+    },
+    {
+      "case_id": "Q05",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "start_line": 246,
+      "end_line": 250,
+      "why": "正超时调用等待辅助函数",
+      "excerpt_sha256": "b3f3b5d8582360177974dc3480feda788a21c2f808271665d02606f56a70fa19"
+    },
+    {
+      "case_id": "Q05",
+      "path": "code/src/backend/storage/ipc/signalfuncs.c",
+      "start_line": 148,
+      "end_line": 202,
+      "why": "存在性轮询、等待及超时返回",
+      "excerpt_sha256": "efcf28b4b2e52f995f69ada6c526fe0615a749776e64ad47d9e5b6be85a1921d"
+    },
+    {
+      "case_id": "Q06",
+      "path": "docs/sql-select.txt",
+      "start_line": 744,
+      "end_line": 755,
+      "why": "WITH TIES按ORDER BY末位扩大结果",
+      "excerpt_sha256": "a6ea7c5c8f3e5e0461815454b353f092ebc1e2ec44d3ea09a48a80d9af46d466"
+    },
+    {
+      "case_id": "Q06",
+      "path": "code/src/backend/executor/nodeLimit.c",
+      "start_line": 153,
+      "end_line": 188,
+      "why": "达到计数的状态迁移及保存末位窗口元组",
+      "excerpt_sha256": "e7236885a29af413d509e0d52e0727fd2b31104b5d13378740058db4141ed1ae"
+    },
+    {
+      "case_id": "Q06",
+      "path": "code/src/backend/executor/nodeLimit.c",
+      "start_line": 220,
+      "end_line": 249,
+      "why": "比较并列及首个不同键的处理",
+      "excerpt_sha256": "dfb663e7ea4710f6c059f228cd2c19067b8ea431364d74db241833ca8bf2e539"
+    }
+  ],
+  "validation": {
+    "case_count": 8,
+    "unique_ids": true,
+    "source_paths_and_line_ranges_verified": true,
+    "independent_static_review_completed": true,
+    "executed_tasks": 0,
+    "new_qwen_api_calls": 0,
+    "source_hashes_match_approved_corpus": true,
+    "source_file_count": 11,
+    "unchanged_original_frozen_files": {
+      "scenario-routing-v2": 27,
+      "首轮": 25
+    }
+  },
+  "independent_static_review": {
+    "reviewed_utc": "2026-10-17T10:15:21.482523+00:00",
+    "reviewer": "natural_question_review",
+    "scope": "题意、自然程度、金标准范围、源码与文档支持、文件及证据哈希",
+    "case_results": {
+      "Q01": "pass",
+      "Q02": "pass",
+      "Q03": "pass",
+      "Q04": "pass",
+      "Q05": "pass",
+      "Q06": "pass",
+      "QDEV01": "pass",
+      "QDEV02": "pass"
+    },
+    "agent_answers_or_scores_read": false,
+    "resolved_issue": "Q05未询问计时精度，已把不能保证精确经过一秒移到reference_notes，不作为额外必答项。",
+    "limit": "代理静态验题，不是人工实测或新的盲测结果。"
+  }
+}

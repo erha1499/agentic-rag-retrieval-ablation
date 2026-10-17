@@ -1,0 +1,55 @@
+[
+  {
+    "id": "QDEV01",
+    "split": "dev",
+    "kind": "code",
+    "difficulty": "easy",
+    "scenario": "code_verify",
+    "source_case": "P01",
+    "question": "用数据库自带的休眠功能让查询等十分钟，期间还能取消吗？遇到配置重载这类信号被提前唤醒，会不会少等一段时间？我想确认内部是怎么处理的。",
+    "expected_action": "answer",
+    "required_facts": [
+      "内部通过可唤醒的等待循环并在循环中检查中断，所以能处理查询取消，不是一次不可中断的长时间休眠。",
+      "开始时确定目标结束时间，每轮按目标时间减当前时间重算剩余等待；非取消信号提前唤醒后会继续等待，不因此少等。"
+    ],
+    "evidence": [
+      {
+        "path": "code/src/backend/utils/adt/misc.c",
+        "start_line": 375,
+        "end_line": 410,
+        "why": "等待设计说明与完整循环"
+      }
+    ],
+    "notes": "自然问法版；金标准仅供评审。模型只接收question，来源与引用要求由共同提示词承担；不向模型提供标签、金标准或参考实现。允许等价事实和有效替代证据，reference_notes不增加隐含必答项。",
+    "reference_notes": [
+      "对应数据库内置pg_sleep；参考实现为WaitLatch、CHECK_FOR_INTERRUPTS和endtime。无需强制写出函数、宏或局部变量名。"
+    ]
+  },
+  {
+    "id": "QDEV02",
+    "split": "dev",
+    "kind": "doc",
+    "difficulty": "easy",
+    "scenario": "insufficient",
+    "source_case": "P02",
+    "question": "业务库准备上线，最大连接数设多少比较合适？想让吞吐高一些，又不希望把内存撑爆。",
+    "expected_action": "insufficient",
+    "required_facts": [
+      "现有信息不足以替该部署确定合适的具体值或保证最优且安全；应说明还需了解资源和业务连接或查询负载，并结合测量或压测确认。允许合理追问，或给出清楚带条件的起点建议。",
+      "最大连接数影响资源分配，增大它会增加包括共享内存在内的资源占用，不能无条件把连接数越高等同于吞吐越高或安全。"
+    ],
+    "evidence": [
+      {
+        "path": "docs/runtime-config-connection.txt",
+        "start_line": 25,
+        "end_line": 32,
+        "why": "默认不是部署最优值，连接数影响资源分配"
+      }
+    ],
+    "notes": "自然问法版；金标准仅供评审。模型只接收question，来源与引用要求由共同提示词承担；不向模型提供标签、金标准或参考实现。允许等价事实和有效替代证据，reference_notes不增加隐含必答项。",
+    "reference_notes": [
+      "对应max_connections配置；手册通常默认100，但题目未问默认值，默认100不是必答项。",
+      "insufficient指不足以给出该部署的确定配置，不要求整段拒答。带适用条件的建议可以通过；把任意具体值宣称为保证最优且不耗尽内存不能通过。"
+    ]
+  }
+]
