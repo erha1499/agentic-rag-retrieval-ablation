@@ -8,28 +8,58 @@ import time
 
 from qwen_client import Client, BudgetError, UnknownUsageError, CHAT_MODEL
 from retrieval import Retriever
+from experiment_state import bind_run
 
 ROOT = Path(__file__).resolve().parent
-SYSTEM = (ROOT / 'prompts/检索流程.md').read_text()
 READ_CHAR_LIMIT = 12000
+SKILLS = {'检索流程': 'skills/检索流程/技能.md'}
+
+
+def registered_skill(root, name):
+    if not isinstance(name, str) or name not in SKILLS:
+        raise ValueError('技能未注册')
+    root = Path(root).resolve()
+    candidate = (root / SKILLS[name]).resolve()
+    if (not candidate.is_relative_to(root) or
+            not candidate.is_relative_to((root / 'skills').resolve()) or not candidate.is_file()):
+        raise ValueError('技能文件必须位于项目技能目录内')
+    return {'name': name, 'path': SKILLS[name], 'text': candidate.read_text()}
+
+
+def system_prompt(root):
+    catalog = []
+    for name in SKILLS:
+        text = registered_skill(root, name)['text']
+        header = re.match(r'\A---\nname: ([^\n]+)\ndescription: ([^\n]+)\n---(?:\n|$)', text)
+        if not header or header.group(1) != name:
+            raise ValueError('技能须以名称和单行描述开头')
+        catalog.append(f'- {name}：{header.group(2)} 使用 load_skill(name="{name}") 读取。')
+    return (Path(root) / 'prompts/系统提示词.md').read_text().strip() + '\n\n可用技能：\n' + '\n'.join(catalog)
+
+
+SYSTEM = system_prompt(ROOT)
+LOAD_SKILL = {'type': 'function', 'function': {'name': 'load_skill', 'description':
+    '读取已注册技能的完整操作指导。',
+    'parameters': {'type': 'object', 'properties': {
+        'name': {'type': 'string', 'enum': list(SKILLS)}}, 'required': ['name']}}}
 
 GREP = {'type': 'function', 'function': {'name': 'grep', 'description':
-    '对本地语料做正则检索；代码校验与实现细节优先使用。命中返回逐行原文；files_only返回路径及文件大小、行数。',
+    '对本地文档或源码做正则检索，返回原文行及行号；files_only返回路径、字符数和行数。',
     'parameters': {'type': 'object', 'properties': {
         'pattern': {'type': 'string', 'description': 'ripgrep正则；可用|组合术语'},
         'scope': {'type': 'string', 'enum': ['all', 'doc', 'code']},
-        'path_glob': {'type': 'string', 'description': '可选，如**/nodeLimit.c或docs/*isolation*'},
+        'path_glob': {'type': 'string', 'description': '可选的文件路径通配过滤'},
         'context_lines': {'type': 'integer', 'minimum': 0, 'maximum': 20},
         'max_matches': {'type': 'integer', 'minimum': 1, 'maximum': 200},
         'files_only': {'type': 'boolean'}, 'case_sensitive': {'type': 'boolean'}},
         'required': ['pattern']}}}
 READ = {'type': 'function', 'function': {'name': 'read_file', 'description':
-    '读取已定位文件，返回逐行原文。小文件可省略行范围读取全文；大文件先grep，再用start_line/end_line读取局部。返回最多12000字符，超出报错且不截断。',
+    '读取语料文件，返回带行号的原文；可指定起止行，省略则读取全文。返回最多12000字符，超出报错且不截断。',
     'parameters': {'type': 'object', 'properties': {
         'path': {'type': 'string'}, 'start_line': {'type': 'integer', 'minimum': 1},
         'end_line': {'type': 'integer', 'minimum': 1}}, 'required': ['path']}}}
 RAG = {'type': 'function', 'function': {'name': 'rag_search', 'description':
-    '当文档量大、问题只需局部语义且术语不确定时，混合检索并精排局部父块。全局概览不能仅凭top-k片段判断覆盖完整；代码精确条件仍须grep核验。',
+    '对文档或源码做向量与关键词混合检索、融合和精排，返回相关父块及原文行范围，正文总量最多12000字符。',
     'parameters': {'type': 'object', 'properties': {
         'query': {'type': 'string', 'maxLength': 2000},
         'scope': {'type': 'string', 'enum': ['all', 'doc', 'code']},
@@ -54,6 +84,8 @@ class Tools:
     def call(self, name, args, label):
         if not isinstance(args, dict):
             raise ValueError('工具参数必须是对象')
+        if name == 'load_skill':
+            return registered_skill(self.root, **args)
         if name == 'read_file':
             return self.read_file(**args)
         if name == 'grep':
@@ -204,14 +236,15 @@ def execute(case, arm, split, client, retriever, config):
         raise RuntimeError('存在未核验的中断任务：' + str(output))
     label = f'{split}:{case["id"]}:{arm}'
     tools = Tools(ROOT, retriever if arm == 'B' else None)
-    schemas = [GREP, READ] + ([RAG] if arm == 'B' else [])
+    schemas = [LOAD_SKILL, GREP, READ] + ([RAG] if arm == 'B' else [])
     messages = [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': case['question']}]
     result = {'id': case['id'], 'arm': arm, 'split': split, 'kind': case['kind'], 'question': case['question'],
               'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
               'limits': {key: config[key] for key in ('max_model_calls', 'max_completion_tokens', 'time_limit_seconds')},
               'allowed_tools': [schema['function']['name'] for schema in schemas],
               'status': 'running', 'model': config['model'], 'events': [], 'final_answer': None,
-              'tool_calls': 0, 'grep_calls': 0, 'read_calls': 0, 'rag_calls': 0,
+              'tool_calls': 0, 'skill_calls': 0, 'loaded_skills': [],
+              'grep_calls': 0, 'read_calls': 0, 'rag_calls': 0,
               'whole_reads': 0, 'range_reads': 0, 'tool_return_chars': 0, 'full_file_read_chars': 0,
               'received_windows': [], 'answer_attempts': [], 'repair_count': 0,
               'model_responses': 0, 'executed': False}
@@ -232,7 +265,7 @@ def execute(case, arm, split, client, retriever, config):
                 break
             final_turn = step == config['max_model_calls'] - 1 or repair_pending == 'answer_only'
             if step == config['max_model_calls'] - 1 and repair_pending != 'answer_only':
-                messages.append({'role': 'user', 'content': '已达到本题调用上限。只能依据已经收到的证据简洁作答，并使用固定格式行号引用；证据不足请明确说明，不得新增推测。'})
+                messages.append({'role': 'user', 'content': '可用调用次数已用尽。请依据已经收到的证据简洁作答，并引用准确行号；证据不足请说明，勿新增推测。'})
             offered = [] if final_turn else schemas
             before = time.monotonic()
             response = client.chat(messages, offered, label=label + f':step{step}',
@@ -265,10 +298,10 @@ def execute(case, arm, split, client, retriever, config):
                     result['repair_mode'] = repair_pending
                     issues = '；'.join(validation['errors'][:4])
                     instruction = (
-                        '仅有这一次修正机会，不再检索。' if repair_pending == 'answer_only' else
-                        '这是唯一一次反馈。目前尚未取得任何正文证据。先调用检索工具取证，再根据实际返回的正文作答；不要直接重写先验回答。')
+                        '请修正回答，不再检索。' if repair_pending == 'answer_only' else
+                        '目前尚未取得任何正文证据。先调用检索工具取证，再根据实际返回的正文作答；不要直接重写先验回答。')
                     messages.append({'role': 'user', 'content':
-                        instruction + '请压缩为300—600中文字以内，只保留回答所需的已取证结论；'
+                        instruction + '请简洁作答，只保留回答所需的已取证结论；'
                         '每个关键结论使用【相对路径:L起始行-L结束行】格式，范围必须全部来自实际收到的正文。'
                         '没有证据的内容删除并说明不足，不能编造引用。' + ('上次输出被截断。' if incomplete else '') + issues})
                     result['status'] = 'running'
@@ -299,7 +332,11 @@ def execute(case, arm, split, client, retriever, config):
                 result['tool_calls'] += 1; result['tool_return_chars'] += len(text)
                 windows = returned_windows(name, value)
                 result['received_windows'].extend(windows)
-                if name == 'grep':
+                if name == 'load_skill':
+                    result['skill_calls'] += 1
+                    if not value.get('error') and value['name'] not in result['loaded_skills']:
+                        result['loaded_skills'].append(value['name'])
+                elif name == 'grep':
                     result['grep_calls'] += 1
                 elif name == 'read_file':
                     result['read_calls'] += 1
@@ -371,6 +408,7 @@ def main():
     if not 0 < config['budget_cap_cny'] <= 3:
         raise ValueError('本轮新增调用的预算必须大于0且不超过3元')
     cases = select_cases(json.loads((ROOT / f'data/cases_{args.split}.json').read_text()), args.ids)
+    bind_run(ROOT)
     client = Client(ROOT, cap_cny=config['budget_cap_cny']); retriever = Retriever(ROOT, client)
     results = schedule(cases, args.split, client, retriever, config)
     print(json.dumps({'scheduled_tasks': len(results), 'api_summary': client.summary()}, ensure_ascii=False), flush=True)

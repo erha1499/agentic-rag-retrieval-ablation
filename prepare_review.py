@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import random
 
+from experiment_state import bind_run
+
 ROOT = Path(__file__).resolve().parent
 TERMINAL_EXCLUSIONS = {'running', 'pending', 'not_started'}
 
@@ -74,6 +76,7 @@ def review_directory(root, split):
 
 def prepare(root=ROOT, split='test', packets=None):
     root = Path(root)
+    fingerprint = bind_run(root)
     cases = {case['id']: case for case in read_json(root / f'data/cases_{split}.json')}
     records = ledger_records(root)
     runs, states = [], []
@@ -107,6 +110,8 @@ def prepare(root=ROOT, split='test', packets=None):
                      'difficulty': case.get('difficulty'), 'scenario': case.get('scenario'),
                      'expected_action': case.get('expected_action', 'answer'),
                      'required_facts': case['required_facts'], 'reference_evidence': evidence,
+                     'reference_notes': case.get('reference_notes', []),
+                     'reference_notes_policy': '仅供理解与核验证据，不作为额外必答项；按required_facts评分。',
                      'answer': run.get('final_answer'), 'run_status': status,
                      'received_windows': windows}
             runs.append((case_id, arm, entry))
@@ -140,7 +145,7 @@ def prepare(root=ROOT, split='test', packets=None):
     hashes = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
               for path in directory.glob('packet_*.json') if path.name != 'packet_hashes.json'}
     (directory / 'packet_hashes.json').write_text(json.dumps(hashes, indent=2))
-    manifest = {'split': split, 'planned_tasks': len(cases) * 2,
+    manifest = {'split': split, 'freeze_sha256': fingerprint, 'planned_tasks': len(cases) * 2,
                 'executed_tasks': sum(row['executed'] for row in states),
                 'answers_for_review': len(runs), 'packets': packet_count, 'states': states}
     (directory / 'preparation_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))

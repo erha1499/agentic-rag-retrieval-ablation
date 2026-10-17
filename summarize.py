@@ -7,7 +7,8 @@ from pathlib import Path
 import re
 import statistics
 
-from prepare_review import ROOT, ledger_records, read_json, review_directory, task_records, was_executed
+from experiment_state import bind_run
+from prepare_review import ROOT, ledger_records, prepare, read_json, review_directory, task_records, was_executed
 from qwen_client import CHAT_MODEL, Client
 
 OUTPUT = ROOT / 'outputs'
@@ -130,6 +131,7 @@ def aggregate(rows):
         'whole_file_read_calls': sum(row['全文读取次数'] for row in rows),
         'range_read_calls': sum(row['范围读取次数'] for row in rows),
         'grep_calls': sum(row['grep次数'] for row in rows),
+        'skill_calls': sum(row['Skill加载次数'] for row in rows),
         'rag_calls': sum(row['RAG次数'] for row in rows),
         'tasks_using_rag': sum(row['RAG次数'] > 0 for row in executed),
         'tool_return_chars': sum(row['工具返回字符数'] for row in rows)}
@@ -160,9 +162,19 @@ def paired_outcomes(rows):
 
 def summarize(root=ROOT, split='test', output=OUTPUT):
     root = Path(root)
+    fingerprint = bind_run(root)
     config = read_json(root / 'experiment_config.json')
     cases = {case['id']: case for case in read_json(root / f'data/cases_{split}.json')}
     directory = review_directory(root, split)
+    if list(directory.glob('review_*.json')):
+        try:
+            preparation = read_json(directory / 'preparation_manifest.json')
+        except (OSError, ValueError) as error:
+            raise ValueError('已有评分但评审准备清单缺失或无效，不能确定原始盲评映射') from error
+        packets = preparation.get('packets') if isinstance(preparation, dict) else None
+        if type(packets) is not int or not 1 <= packets <= 3:
+            raise ValueError('已有评分的原始评审包数量无效，不能重建未知盲评映射')
+        prepare(root, split, packets=packets)
     mapping = read_json(directory / 'private_mapping.json') if (directory / 'private_mapping.json').exists() else {}
     review_by_run = {}
     for path in sorted(directory.glob('review_*.json')):
@@ -208,6 +220,8 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
                 '费用未知请求': costs['unknown_calls'], '在途请求': costs['pending_calls'],
                 'HTTP失败请求': costs['http_failed_calls'], '耗时秒': run.get('seconds'),
                 '工具调用数': run.get('tool_calls', 0), 'grep次数': run.get('grep_calls', 0),
+                'Skill加载次数': sum(event.get('type') == 'tool' and event.get('name') == 'load_skill'
+                                  for event in run.get('events', [])),
                 '全文读取次数': whole, '范围读取次数': ranged, 'RAG次数': run.get('rag_calls', 0),
                 '工具返回字符数': run.get('tool_return_chars', 0),
                 '评审理由': public_text(review.get('reason')) if review else '',
@@ -219,7 +233,9 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
     fully_reviewed = terminal and all(row['已评审'] for row in rows)
     budget_stopped = any('budget' in row['运行状态'].lower() for row in rows)
     result = {
-        'split': split, 'state': 'complete' if fully_reviewed else 'pending_review' if terminal else 'partial',
+        'split': split, 'freeze_sha256': fingerprint,
+        'state': ('not_started' if not any(row['已执行'] for row in rows) else
+                  'complete' if fully_reviewed else 'pending_review' if terminal else 'partial'),
         'budget_stopped': budget_stopped, 'planned_questions': len(cases), 'planned_tasks': len(rows),
         'executed_tasks': sum(row['已执行'] for row in rows),
         'by_arm': {arm: aggregate([row for row in rows if row['组别'] == arm]) for arm in ('A', 'B')},
@@ -231,11 +247,11 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
                        '隐藏组别代理评审及根代理抽核，未经独立人工复核',
                        '费用按供应方用量乘公开价，未核对账单、优惠或缓存抵扣',
                        '复用已有索引，本轮费用不含前轮建库；本地计算与评审订阅消耗未折算人民币']}
-    destination = root / 'results/改进轮' if split == 'test' else root / 'results/开发轮'
+    destination = root / 'results/当前实验' / ('正式' if split == 'test' else '开发')
     destination.mkdir(parents=True, exist_ok=True)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    name = '改进轮' if split == 'test' else '开发轮'
+    name = '正式' if split == 'test' else '开发'
     for path in (destination / '统计汇总.json', output / f'{name}统计汇总.json'):
         path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
     for path in (destination / '逐题结果.csv', output / f'{name}逐题结果.csv'):

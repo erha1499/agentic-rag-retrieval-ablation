@@ -1,9 +1,9 @@
 {
-  "pre_registered_before_formal": true,
-  "definition": "至少一个必要出处来自≥3000英文词的自然文档页或≥3000行（含注释空行）源码文件。英文词统计包括示例和标识符，不代表中文汉字数。",
-  "case_sha256": "763d49c371007e7f1e0468b26935bd83df93f21ff8c5be214cc818ac3185935a",
+  "status": "design_strata_not_empirically_calibrated",
+  "definition": "至少一个必要出处来自 ≥3000 英文词的自然文档页或 ≥3000 行（含注释空行）的源码文件。英文词统计包括示例和标识符，不代表中文汉字数。",
+  "case_sha256": "e12725f49faa578d91bbba47b62b868d0dc283c62ab8b06c81861d2594ed44ca",
   "by_case": {
-    "N01": {
+    "Q01": {
       "long_material": false,
       "long_docs": [],
       "long_code_files": [],
@@ -17,7 +17,7 @@
         }
       ]
     },
-    "N02": {
+    "Q02": {
       "long_material": true,
       "long_docs": [
         "docs/sql-altertable.txt"
@@ -33,7 +33,7 @@
         }
       ]
     },
-    "N03": {
+    "Q03": {
       "long_material": true,
       "long_docs": [],
       "long_code_files": [
@@ -56,11 +56,12 @@
         }
       ]
     },
-    "N04": {
+    "Q04": {
       "long_material": true,
       "long_docs": [],
       "long_code_files": [
-        "code/src/backend/executor/execMain.c"
+        "code/src/backend/executor/execMain.c",
+        "code/src/backend/utils/cache/relcache.c"
       ],
       "source_lengths": [
         {
@@ -69,10 +70,17 @@
           "words": 10679,
           "lines": 3037,
           "chars": 91783
+        },
+        {
+          "path": "code/src/backend/utils/cache/relcache.c",
+          "kind": "code",
+          "words": 26804,
+          "lines": 6898,
+          "chars": 219547
         }
       ]
     },
-    "N05": {
+    "Q05": {
       "long_material": false,
       "long_docs": [],
       "long_code_files": [],
@@ -86,7 +94,7 @@
         }
       ]
     },
-    "N06": {
+    "Q06": {
       "long_material": true,
       "long_docs": [
         "docs/sql-select.txt"

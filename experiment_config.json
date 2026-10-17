@@ -19,10 +19,12 @@
   "rag_return_char_budget": 12000,
   "arms": {
     "A": [
+      "load_skill",
       "grep",
       "read_file"
     ],
     "B": [
+      "load_skill",
       "grep",
       "read_file",
       "rag_search"
@@ -39,11 +41,12 @@
   "price_source": "https://help.aliyun.com/zh/model-studio/model-pricing",
   "price_checked_date": "2026-10-17",
   "formal_concurrent_tasks": 1,
-  "revision": "scenario-routing-v2",
+  "revision": "skill-retrieval",
   "read_return_char_budget": 12000,
   "read_policy": "小文件可全文；大文件需指定行范围，超出12000字符返回错误不静默截断",
-  "prompt_source": "prompts/检索流程.md",
+  "prompt_source": "prompts/系统提示词.md",
   "max_answer_repairs": 1,
-  "comparison_scope": "只比较本轮相同检索策略下额外RAG工具，不与首轮作相同条件效果比较",
-  "index_cost_in_this_round": false
+  "comparison_scope": "同一系统提示词、检索Skill和运行限制下，只比较额外rag_search工具；历史结果不作为当前成绩",
+  "index_cost_in_this_round": false,
+  "skill_source": "skills/检索流程/技能.md"
 }
