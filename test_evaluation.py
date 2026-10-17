@@ -182,8 +182,7 @@ class EvaluationTests(unittest.TestCase):
                     'id': cid, 'arm': arm, 'status': status, 'final_answer': answer, 'seconds': 2,
                     'messages': [{'role': 'tool', 'content': json.dumps({'path': 'docs/demo.txt',
                                   'start_line': 2, 'end_line': 3, 'total_lines': 4, 'text': '2: two\n3: three'})}],
-                    'events': [{'type': 'tool', 'name': 'load_skill', 'arguments': {'name': '检索流程'}},
-                               {'type': 'tool', 'name': 'read_file', 'arguments': {'path': 'docs/demo.txt', 'start_line': 2, 'end_line': 3}}]})
+                    'events': [{'type': 'tool', 'name': 'read_file', 'arguments': {'path': 'docs/demo.txt', 'start_line': 2, 'end_line': 3}}]})
                 ledger.append({'record_type': 'api_call', 'reservation_id': f'{cid}{arm}',
                                'model': CHAT_MODEL, 'label': f'test:{cid}:{arm}:step0', 'http_status': 200,
                                'usage_status': 'reported', 'usage': {'prompt_tokens': 10, 'completion_tokens': 2},
@@ -214,7 +213,6 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual(result['by_arm']['B']['strict_passed'], 0)  # 截断内容可正确，任务仍未完成。
             self.assertEqual(result['by_arm']['B']['supported_covered_facts'], 1)
             self.assertEqual(result['by_arm']['A']['range_read_calls'], 2)
-            self.assertEqual(result['by_arm']['A']['skill_calls'], 2)
             self.assertEqual(result['paired']['reviewed_pairs'], 1)
             self.assertEqual(result['paired']['A_only_pass'], 1)
             self.assertEqual(result['paired']['incomplete_pairs'], 1)
@@ -240,10 +238,10 @@ class EvaluationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 prepare(root)
 
-    def test_frozen_question_system_and_skill_cannot_change(self):
+    def test_frozen_question_and_system_cannot_change(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            names = ['data/cases_test.json', 'prompts/系统提示词.md', 'skills/检索流程/技能.md']
+            names = ['data/cases_test.json', 'prompts/系统提示词.md']
             for name in names:
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)

@@ -12,43 +12,14 @@ from experiment_state import bind_run
 
 ROOT = Path(__file__).resolve().parent
 READ_CHAR_LIMIT = 12000
-SKILLS = {'检索流程': 'skills/检索流程/技能.md'}
-
-
-def registered_skill(root, name):
-    if not isinstance(name, str) or name not in SKILLS:
-        raise ValueError('技能未注册')
-    root = Path(root).resolve()
-    candidate = (root / SKILLS[name]).resolve()
-    if (not candidate.is_relative_to(root) or
-            not candidate.is_relative_to((root / 'skills').resolve()) or not candidate.is_file()):
-        raise ValueError('技能文件必须位于项目技能目录内')
-    return {'name': name, 'path': SKILLS[name], 'text': candidate.read_text()}
-
-
-def system_prompt(root):
-    catalog = []
-    for name in SKILLS:
-        text = registered_skill(root, name)['text']
-        header = re.match(r'\A---\nname: ([^\n]+)\ndescription: ([^\n]+)\n---(?:\n|$)', text)
-        if not header or header.group(1) != name:
-            raise ValueError('技能须以名称和单行描述开头')
-        catalog.append(f'- {name}：{header.group(2)} 使用 load_skill(name="{name}") 读取。')
-    return (Path(root) / 'prompts/系统提示词.md').read_text().strip() + '\n\n可用技能：\n' + '\n'.join(catalog)
-
-
-SYSTEM = system_prompt(ROOT)
-LOAD_SKILL = {'type': 'function', 'function': {'name': 'load_skill', 'description':
-    '读取已注册技能的完整操作指导。',
-    'parameters': {'type': 'object', 'properties': {
-        'name': {'type': 'string', 'enum': list(SKILLS)}}, 'required': ['name']}}}
+SYSTEM = (ROOT / 'prompts/系统提示词.md').read_text().strip()
 
 GREP = {'type': 'function', 'function': {'name': 'grep', 'description':
     '对本地文档或源码做正则检索，返回原文行及行号；files_only返回路径、字符数和行数。',
     'parameters': {'type': 'object', 'properties': {
-        'pattern': {'type': 'string', 'description': 'ripgrep正则；可用|组合术语'},
+        'pattern': {'type': 'string', 'description': 'ripgrep正则；可用|组合术语；匹配字面量括号等正则元字符时须转义'},
         'scope': {'type': 'string', 'enum': ['all', 'doc', 'code']},
-        'path_glob': {'type': 'string', 'description': '可选的文件路径通配过滤'},
+        'path_glob': {'type': 'string', 'description': '可选的相对语料根目录的glob，如docs/*.txt或code/**/*.c；不是正则，不支持|并集'},
         'context_lines': {'type': 'integer', 'minimum': 0, 'maximum': 20},
         'max_matches': {'type': 'integer', 'minimum': 1, 'maximum': 200},
         'files_only': {'type': 'boolean'}, 'case_sensitive': {'type': 'boolean'}},
@@ -84,8 +55,6 @@ class Tools:
     def call(self, name, args, label):
         if not isinstance(args, dict):
             raise ValueError('工具参数必须是对象')
-        if name == 'load_skill':
-            return registered_skill(self.root, **args)
         if name == 'read_file':
             return self.read_file(**args)
         if name == 'grep':
@@ -126,6 +95,8 @@ class Tools:
                 or len(path_glob) > 500 or type(files_only) is not bool
                 or type(case_sensitive) is not bool):
             raise ValueError('grep参数无效')
+        if '|' in path_glob:
+            raise ValueError('path_glob是相对语料根目录的glob，不支持|并集；请分别检索或去掉路径过滤')
         cmd = (['rg', '--files-with-matches', '--sort', 'path'] if files_only else
                ['rg', '--json', '--sort', 'path', '--max-count', str(max_matches + 1), '-C', str(context_lines)])
         if not case_sensitive:
@@ -136,6 +107,8 @@ class Tools:
         process = subprocess.run(cmd, cwd=self.corpus, text=True, capture_output=True, timeout=15)
         if process.returncode not in (0, 1):
             return {'error': process.stderr[:2000], 'matches': []}
+        hint = ({'hint': '未找到匹配；请检查检索词、scope及相对语料根目录的path_glob，必要时去掉路径过滤。无命中不代表相关内容不存在。'}
+                if process.returncode == 1 else {})
         if files_only:
             paths = process.stdout.splitlines()
             info = []
@@ -143,7 +116,7 @@ class Tools:
                 raw = self.member(path).read_text()
                 info.append({'path': path, 'chars': len(raw), 'total_lines': len(raw.splitlines())})
             return {'files': paths[:max_matches], 'file_info': info,
-                    'file_count': min(len(paths), max_matches), 'truncated': len(paths) > max_matches}
+                    'file_count': min(len(paths), max_matches), 'truncated': len(paths) > max_matches, **hint}
         matches = []; contexts = []; count = 0; truncated = False
         for line in process.stdout.splitlines():
             event = json.loads(line); data = event['data']
@@ -164,7 +137,7 @@ class Tools:
         items = {(m['path'], m['line']): m for m in contexts if (m['path'], m['line']) in wanted}
         items.update({(m['path'], m['line']): m for m in matches})
         return {'lines': [items[key] for key in sorted(items)],
-                'match_count': len(matches), 'truncated': truncated}
+                'match_count': len(matches), 'truncated': truncated, **hint}
 
 
 def returned_windows(name, value):
@@ -236,19 +209,19 @@ def execute(case, arm, split, client, retriever, config):
         raise RuntimeError('存在未核验的中断任务：' + str(output))
     label = f'{split}:{case["id"]}:{arm}'
     tools = Tools(ROOT, retriever if arm == 'B' else None)
-    schemas = [LOAD_SKILL, GREP, READ] + ([RAG] if arm == 'B' else [])
+    schemas = [GREP, READ] + ([RAG] if arm == 'B' else [])
     messages = [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': case['question']}]
     result = {'id': case['id'], 'arm': arm, 'split': split, 'kind': case['kind'], 'question': case['question'],
               'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
               'limits': {key: config[key] for key in ('max_model_calls', 'max_completion_tokens', 'time_limit_seconds')},
               'allowed_tools': [schema['function']['name'] for schema in schemas],
               'status': 'running', 'model': config['model'], 'events': [], 'final_answer': None,
-              'tool_calls': 0, 'skill_calls': 0, 'loaded_skills': [],
+              'tool_calls': 0,
               'grep_calls': 0, 'read_calls': 0, 'rag_calls': 0,
               'whole_reads': 0, 'range_reads': 0, 'tool_return_chars': 0, 'full_file_read_chars': 0,
               'received_windows': [], 'answer_attempts': [], 'repair_count': 0,
               'model_responses': 0, 'executed': False}
-    started = time.monotonic(); repair_pending = None
+    started = time.monotonic()
 
     def save():
         result['seconds'] = round(time.monotonic() - started, 3)
@@ -263,10 +236,11 @@ def execute(case, arm, split, client, retriever, config):
             if time.monotonic() - started > config['time_limit_seconds']:
                 result['status'] = 'timeout'
                 break
-            final_turn = step == config['max_model_calls'] - 1 or repair_pending == 'answer_only'
-            if step == config['max_model_calls'] - 1 and repair_pending != 'answer_only':
+            final_turn = step == config['max_model_calls'] - 1
+            if final_turn:
                 messages.append({'role': 'user', 'content': '可用调用次数已用尽。请依据已经收到的证据简洁作答，并引用准确行号；证据不足请说明，勿新增推测。'})
             offered = [] if final_turn else schemas
+            offered_names = {schema['function']['name'] for schema in offered}
             before = time.monotonic()
             response = client.chat(messages, offered, label=label + f':step{step}',
                                    max_tokens=config['max_completion_tokens'])
@@ -294,14 +268,13 @@ def execute(case, arm, split, client, retriever, config):
                     break
                 if (incomplete or not validation['passed']) and not result['repair_count'] and step + 1 < config['max_model_calls']:
                     result['repair_count'] = 1
-                    repair_pending = 'answer_only' if result['received_windows'] else 'retrieve_evidence'
-                    result['repair_mode'] = repair_pending
+                    result['repair_mode'] = 'retrieve_evidence'
                     issues = '；'.join(validation['errors'][:4])
                     instruction = (
-                        '请修正回答，不再检索。' if repair_pending == 'answer_only' else
+                        '请检查原问题，必要时继续检索或按行补读，再修正回答。' if result['received_windows'] else
                         '目前尚未取得任何正文证据。先调用检索工具取证，再根据实际返回的正文作答；不要直接重写先验回答。')
                     messages.append({'role': 'user', 'content':
-                        instruction + '请简洁作答，只保留回答所需的已取证结论；'
+                        instruction + '请简洁回答用户原问题，不要只罗列检索到的事实；'
                         '每个关键结论使用【相对路径:L起始行-L结束行】格式，范围必须全部来自实际收到的正文。'
                         '没有证据的内容删除并说明不足，不能编造引用。' + ('上次输出被截断。' if incomplete else '') + issues})
                     result['status'] = 'running'
@@ -321,6 +294,8 @@ def execute(case, arm, split, client, retriever, config):
                     break
                 name = call['function']['name']; raw = call['function']['arguments']; before = time.monotonic()
                 try:
+                    if name not in offered_names:
+                        raise ValueError('本轮未开放此工具；请仅使用本轮提供的工具。')
                     args = json.loads(raw) if isinstance(raw, str) else raw
                     value = tools.call(name, args, label=label + f':tool{result["tool_calls"]}')
                 except (BudgetError, UnknownUsageError):
@@ -332,13 +307,9 @@ def execute(case, arm, split, client, retriever, config):
                 result['tool_calls'] += 1; result['tool_return_chars'] += len(text)
                 windows = returned_windows(name, value)
                 result['received_windows'].extend(windows)
-                if name == 'load_skill':
-                    result['skill_calls'] += 1
-                    if not value.get('error') and value['name'] not in result['loaded_skills']:
-                        result['loaded_skills'].append(value['name'])
-                elif name == 'grep':
+                if name == 'grep' and name in offered_names:
                     result['grep_calls'] += 1
-                elif name == 'read_file':
+                elif name == 'read_file' and name in offered_names:
                     result['read_calls'] += 1
                     if not value.get('error'):
                         if value['read_mode'] == 'whole':
@@ -346,7 +317,7 @@ def execute(case, arm, split, client, retriever, config):
                             result['full_file_read_chars'] += len(value['text'])
                         else:
                             result['range_reads'] += 1
-                elif name == 'rag_search':
+                elif name == 'rag_search' and name in offered_names:
                     result['rag_calls'] += 1
                 result['events'].append({'type': 'tool', 'name': name, 'arguments': raw,
                     'seconds': round(time.monotonic() - before, 3), 'returned_chars': len(text),

@@ -133,7 +133,6 @@ def aggregate(rows):
         'whole_file_read_calls': sum(row['全文读取次数'] for row in rows),
         'range_read_calls': sum(row['范围读取次数'] for row in rows),
         'grep_calls': sum(row['grep次数'] for row in rows),
-        'skill_calls': sum(row['Skill加载次数'] for row in rows),
         'rag_calls': sum(row['RAG次数'] for row in rows),
         'tasks_using_rag': sum(row['RAG次数'] > 0 for row in executed),
         'tool_return_chars': sum(row['工具返回字符数'] for row in rows)}
@@ -225,8 +224,6 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
                 '费用未知请求': costs['unknown_calls'], '在途请求': costs['pending_calls'],
                 'HTTP失败请求': costs['http_failed_calls'], '耗时秒': run.get('seconds'),
                 '工具调用数': run.get('tool_calls', 0), 'grep次数': run.get('grep_calls', 0),
-                'Skill加载次数': sum(event.get('type') == 'tool' and event.get('name') == 'load_skill'
-                                  for event in run.get('events', [])),
                 '全文读取次数': whole, '范围读取次数': ranged, 'RAG次数': run.get('rag_calls', 0),
                 '工具返回字符数': run.get('tool_return_chars', 0),
                 '评审理由': public_text(review.get('reason')) if review else '',

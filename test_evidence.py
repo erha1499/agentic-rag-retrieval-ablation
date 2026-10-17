@@ -27,11 +27,6 @@ def grep_call():
         'finish_reason': 'tool_calls'}]}
 
 
-def skill_call():
-    return {'choices': [{'message': {'role': 'assistant', 'content': None, 'tool_calls': [
-        {'id': 'skill-1', 'type': 'function', 'function': {'name': 'load_skill',
-         'arguments': json.dumps({'name': '检索流程'})}}]}, 'finish_reason': 'tool_calls'}]}
-
 
 class FakeClient:
     def __init__(self, responses):
@@ -61,36 +56,7 @@ with tempfile.TemporaryDirectory() as temp:
     (corpus / 'docs/sample.txt').write_text('heading\nrule one\nrule two\nend\n')
     (corpus / 'docs/large.txt').write_text(('line-' + 'x' * 400 + '\n') * 40)
     (corpus / 'docs/escape.txt').symlink_to('/etc/passwd')
-    skill_file = root / runner.SKILLS['检索流程']
-    skill_file.parent.mkdir(parents=True)
-    skill_file.write_text('---\nname: 检索流程\ndescription: 查阅资料时选择检索方法。\n---\n\n技能正文只在加载后出现。')
-    (root / 'prompts').mkdir()
-    (root / 'prompts/系统提示词.md').write_text('你是数据库文档助手。')
     tools = runner.Tools(root)
-    skill = tools.call('load_skill', {'name': '检索流程'}, label='offline')
-    assert '技能正文只在加载后出现' in skill['text']
-    assert not runner.returned_windows('load_skill', skill)
-    initial = runner.system_prompt(root)
-    assert '查阅资料时选择检索方法' in initial and '技能正文只在加载后出现' not in initial
-    for name in ('未注册', '../检索流程', '/etc/passwd', None):
-        try:
-            tools.call('load_skill', {'name': name}, label='offline')
-        except ValueError:
-            pass
-        else:
-            raise AssertionError('未拒绝非法技能名')
-    original_skill = skill_file.read_text()
-    (root / 'secret.md').write_text('不能作为技能读取的资料')
-    skill_file.unlink()
-    skill_file.symlink_to(root / 'secret.md')
-    try:
-        tools.call('load_skill', {'name': '检索流程'}, label='offline')
-    except ValueError:
-        pass
-    else:
-        raise AssertionError('技能文件通过符号链接越界')
-    skill_file.unlink()
-    skill_file.write_text(original_skill)
     local = tools.read_file('docs/sample.txt', 2, 3)
     assert local['text'] == '2: rule one\n3: rule two' and local['read_mode'] == 'range'
     assert local['start_line'] == 2 and local['end_line'] == 3
@@ -127,9 +93,11 @@ with tempfile.TemporaryDirectory() as temp:
         {'path': 'docs/sample.txt', 'start_line': 2, 'end_line': 2}]
     assert not runner.validate_citations('【docs/sample.txt:L1】', windows)['passed']
     assert not runner.validate_citations('【docs/sample.txt:L0】', windows)['passed']
+    assert runner.validate_citations('规则【docs/sample.txt:L2】【docs/sample.txt:L3】', windows)['passed']
     for text in ('未引用', '【docs/sample.txt:L1-L3】', '【docs/sample.txt:L0-L2】',
                  '【docs/sample.txt:L3-L2】', '【docs/sample.txt:2-3】',
-                 '【docs/../sample.txt:L2-L3】', '【code/missing.c:L2-L3】'):
+                 '【docs/../sample.txt:L2-L3】', '【code/missing.c:L2-L3】',
+                 '【docs/sample.txt:L2，L3】', '【docs/sample.txt:L2;docs/sample.txt:L3】'):
         assert not runner.validate_citations(text, windows)['passed'], text
     assert not runner.validate_citations('【docs/sample.txt:L2-L4】', windows)['passed']
     assert not runner.validate_citations('【docs/sample.txt:L2-L4】',
@@ -142,17 +110,18 @@ with tempfile.TemporaryDirectory() as temp:
         assert result['status'] == 'complete' and result['repair_count'] == 1
         assert len(result['answer_attempts']) == 2
         assert result['range_reads'] == 1 and result['whole_reads'] == result['full_file_read_chars'] == 0
-        assert result['executed'] and client.requests[-1][1] == []
+        assert result['executed'] and client.requests[-1][1]
+        assert result['repair_mode'] == 'retrieve_evidence'
         assert '隐藏金标准' not in json.dumps(client.requests, ensure_ascii=False)
 
-        case = {**CASE, 'id': 'C02'}
         client = FakeClient([answer('先验回答'), answer('仍然没有证据')])
-        result = runner.execute(case, 'B', 'test', client, None, CONFIG)
+        result = runner.execute({**CASE, 'id': 'C02'}, 'B', 'test', client, None, CONFIG)
         assert result['status'] == 'evidence_validation_failed' and result['repair_count'] == 1
         assert len(client.requests) == len(result['answer_attempts']) == 2
+        assert result['received_windows'] == []
         assert client.requests[0][0][0]['content'] == runner.SYSTEM
         assert client.requests[1][1] and result['repair_mode'] == 'retrieve_evidence'
-        assert '先调用检索工具取证' in client.requests[1][0][-1]['content']
+        assert '证据' in client.requests[1][0][-1]['content']
 
         client = FakeClient([read_call(), answer(good, 'length'), answer(good)])
         result = runner.execute({**CASE, 'id': 'C03'}, 'A', 'test', client, None, CONFIG)
@@ -201,25 +170,53 @@ with tempfile.TemporaryDirectory() as temp:
 
         arm_requests = {}
         for arm in ('A', 'B'):
-            client = FakeClient([skill_call(), read_call(), answer(good)])
-            result = runner.execute({**CASE, 'id': 'SKILL_' + arm}, arm, 'test', client, None, CONFIG)
-            assert result['status'] == 'complete' and result['skill_calls'] == 1
-            assert result['loaded_skills'] == ['检索流程'] and result['tool_calls'] == 2
+            client = FakeClient([read_call(), answer(good)])
+            result = runner.execute({**CASE, 'id': 'ARM_' + arm}, arm, 'test', client, None, CONFIG)
+            assert result['status'] == 'complete' and result['tool_calls'] == 1
             assert result['received_windows'] == [('docs/sample.txt', 2, 3)]
-            assert '技能正文只在加载后出现' not in client.requests[0][0][0]['content']
-            assert '技能正文只在加载后出现' in client.requests[1][0][-1]['content']
+            assert '隐藏金标准' not in json.dumps(client.requests, ensure_ascii=False)
             arm_requests[arm] = client.requests[0]
         assert arm_requests['A'][0] == arm_requests['B'][0]
         a_tools = arm_requests['A'][1]
         b_tools = arm_requests['B'][1]
         assert a_tools == b_tools[:-1]
-        assert [t['function']['name'] for t in a_tools] == ['load_skill', 'grep', 'read_file']
+        assert [schema['function']['name'] for schema in a_tools] == ['grep', 'read_file']
         assert b_tools[-1]['function']['name'] == 'rag_search'
 
-        client = FakeClient([skill_call(), answer('只读技能不能当作证据'), answer('仍无语料证据')])
-        result = runner.execute({**CASE, 'id': 'SKILL_ONLY'}, 'A', 'test', client, None, CONFIG)
-        assert result['status'] == 'evidence_validation_failed' and result['received_windows'] == []
-        assert result['skill_calls'] == 1 and result['repair_mode'] == 'retrieve_evidence'
+        client = FakeClient([read_call(2, 2), answer(good), read_call(3, 3), answer(good)])
+        result = runner.execute({**CASE, 'id': 'REPAIR_REREAD'}, 'A', 'test', client, None, CONFIG)
+        assert result['status'] == 'complete' and result['repair_count'] == 1
+        assert result['range_reads'] == 2 and result['repair_mode'] == 'retrieve_evidence'
+        assert result['received_windows'] == [('docs/sample.txt', 2, 2), ('docs/sample.txt', 3, 3)]
+        assert not result['answer_attempts'][0]['evidence_validation']['passed']
+        assert result['answer_attempts'][1]['evidence_validation']['passed']
+        assert client.requests[2][1] and client.requests[3][1]
+
+        original_call = runner.Tools.call
+        executed_tools = []
+        def tracked_call(self, name, args, label):
+            executed_tools.append(name)
+            return original_call(self, name, args, label)
+
+        forged = grep_call()
+        forged['choices'][0]['message']['tool_calls'][0]['function'] = {
+            'name': 'rag_search', 'arguments': json.dumps({'query': 'rule one'})}
+        with patch.object(runner.Tools, 'call', tracked_call):
+            client = FakeClient([forged, read_call(), answer(good)])
+            result = runner.execute({**CASE, 'id': 'A_FORGED_RAG'}, 'A', 'test', client, None, CONFIG)
+        assert result['status'] == 'complete' and executed_tools == ['read_file']
+        assert result['rag_calls'] == 0
+        blocked_event = next(event for event in result['events'] if event.get('name') == 'rag_search')
+        assert blocked_event['error'] and not blocked_event['received_windows']
+        assert all('rag_search' not in [schema['function']['name'] for schema in request[1]]
+                   for request in client.requests)
+
+        client = FakeClient([grep_call()] * CONFIG['max_model_calls'])
+        result = runner.execute({**CASE, 'id': 'FINAL_TOOL'}, 'A', 'test', client, None, CONFIG)
+        assert result['status'] == 'incomplete_answer' and result['repair_count'] == 0
+        assert len(client.requests) == result['model_responses'] == CONFIG['max_model_calls']
+        assert result['grep_calls'] == len(result['received_windows']) == CONFIG['max_model_calls'] - 1
+        assert all(request[1] for request in client.requests[:-1]) and not client.requests[-1][1]
 
     cases = [{**CASE, 'id': f'S{i}'} for i in range(3)]
     calls = []
@@ -237,4 +234,4 @@ with tempfile.TemporaryDirectory() as temp:
     else:
         raise AssertionError('未知题号没有拒绝')
     assert runner.select_cases(cases, ['S1']) == [cases[1]]
-print('技能加载、A/B隔离、区间读取、已读引用、一次共享修复与预算停止检查通过；未发起网络请求')
+print('A/B隔离、区间读取、已读引用、修正中补读、调用上限与预算停止检查通过；未发起网络请求')

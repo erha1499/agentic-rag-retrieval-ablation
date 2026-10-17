@@ -14,6 +14,18 @@ with tempfile.TemporaryDirectory() as tmp:
     tools=Tools(root)
     result=tools.grep('transaction',context_lines=1,max_matches=50)
     assert result['match_count']==2 and not result['truncated']
+    assert tools.grep('transaction',scope='doc',path_glob='docs/*.txt')['match_count']==2
+    try:tools.grep('transaction',path_glob='docs/*.txt|code/*.c')
+    except ValueError as error:assert 'path_glob' in str(error) and '不支持|' in str(error)
+    else:raise AssertionError('Regex union accepted in path_glob')
+    missing=tools.grep('transaction',path_glob='code/**/*.c')
+    assert missing['match_count']==0 and missing['lines']==[] and 'path_glob' in missing['hint']
+    missing_files=tools.grep('absent',files_only=True)
+    assert missing_files['files']==[] and missing_files['file_info']==[] and missing_files['file_count']==0
+    assert '去掉路径过滤' in missing_files['hint']
+    (d/'syntax.txt').write_text('call(argument)\n')
+    assert tools.grep(r'call\(',path_glob='docs/syntax.txt')['match_count']==1
+    assert tools.grep('call(',path_glob='docs/syntax.txt')['error']
     assert any(long==r['text'] for r in result['lines'])
     assert len({(r['path'],r['line']) for r in result['lines']})==len(result['lines'])
     whole=tools.read_file('docs/sample.txt')
