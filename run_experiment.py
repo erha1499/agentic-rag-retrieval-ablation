@@ -272,11 +272,11 @@ def execute(case, arm, split, client, retriever, config):
                     result['repair_mode'] = 'retrieve_evidence'
                     issues = '；'.join(validation['errors'][:4])
                     instruction = (
-                        '请检查原问题，必要时继续检索或按行补读，再修正回答。' if result['received_windows'] else
+                        '请检查原问题；已有正文充分时直接修正回答，仅证据不足时继续检索或按行补读。' if result['received_windows'] else
                         '目前尚未取得任何正文证据。先调用检索工具取证，再根据实际返回的正文作答；不要直接重写先验回答。')
                     messages.append({'role': 'user', 'content':
                         instruction + '请简洁回答用户原问题，不要只罗列检索到的事实；'
-                        '每个关键结论使用【相对路径:L起始行-L结束行】格式，范围必须全部来自实际收到的正文。'
+                        '每个关键结论使用【相对路径:L起始行-L结束行】格式，一个括号只含一个路径和一个连续行段，多个行段分别写完整括号；范围必须全部来自实际收到的正文。'
                         '没有证据的内容删除并说明不足，不能编造引用。' + ('上次输出被截断。' if incomplete else '') + issues})
                     result['status'] = 'running'
                     save()

@@ -37,7 +37,7 @@
   "semantic_scoring_denominator": "有非空最终回答的任务；完成状态与未执行另计",
   "cost_measurement": "public prices times provider-reported usage; invoice unavailable",
   "price_source": "https://help.aliyun.com/zh/model-studio/model-pricing",
-  "price_checked_date": "2026-10-17",
+  "price_checked_date": "2026-10-19",
   "formal_concurrent_tasks": 1,
   "revision": "cost-first",
   "read_return_char_budget": 12000,
