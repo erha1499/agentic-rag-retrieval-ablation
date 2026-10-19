@@ -234,4 +234,31 @@ with tempfile.TemporaryDirectory() as temp:
     else:
         raise AssertionError('未知题号没有拒绝')
     assert runner.select_cases(cases, ['S1']) == [cases[1]]
-print('A/B隔离、区间读取、已读引用、修正中补读、调用上限与预算停止检查通过；未发起网络请求')
+
+    (data / 'cases_dev.json').write_text(json.dumps([CASE]))
+    with (patch.object(runner, 'ROOT', root),
+          patch('sys.argv', ['run_experiment.py', 'dev']),
+          patch.object(runner, 'bind_run') as bind,
+          patch.object(runner, 'Client') as client_class,
+          patch.object(runner, 'Retriever'),
+          patch.object(runner, 'schedule', return_value=[]),
+          patch('builtins.print')):
+        client_class.return_value.summary.return_value = {}
+        for budget in (2.8204499, 20):
+            (root / 'experiment_config.json').write_text(json.dumps(
+                {**CONFIG, 'model': runner.CHAT_MODEL, 'budget_cap_cny': budget}))
+            runner.main()
+            client_class.assert_called_with(root, cap_cny=budget)
+        bind.reset_mock(); client_class.reset_mock()
+        for budget in (0, -1, 20.01, True, '20', None, float('nan'), float('inf')):
+            (root / 'experiment_config.json').write_text(json.dumps(
+                {**CONFIG, 'model': runner.CHAT_MODEL, 'budget_cap_cny': budget}))
+            try:
+                runner.main()
+            except ValueError:
+                pass
+            else:
+                raise AssertionError('预算边界未拒绝：' + repr(budget))
+        bind.assert_not_called()
+        client_class.assert_not_called()
+print('A/B隔离、区间读取、已读引用、修正中补读、调用上限、20元入口与预算停止检查通过；未发起网络请求')

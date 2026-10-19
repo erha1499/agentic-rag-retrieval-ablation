@@ -11,7 +11,7 @@
   "max_completion_tokens": 1200,
   "time_limit_seconds": 180,
   "development_time_limit_seconds": 180,
-  "budget_cap_cny": 2.8204499,
+  "budget_cap_cny": 20,
   "vector_top_k": 30,
   "keyword_top_k": 30,
   "rrf_k": 60,

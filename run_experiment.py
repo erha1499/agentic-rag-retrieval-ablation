@@ -12,6 +12,7 @@ from experiment_state import bind_run
 
 ROOT = Path(__file__).resolve().parent
 READ_CHAR_LIMIT = 12000
+BUDGET_LIMIT_CNY = 20
 SYSTEM = (ROOT / 'prompts/系统提示词.md').read_text().strip()
 
 GREP = {'type': 'function', 'function': {'name': 'grep', 'description':
@@ -376,8 +377,9 @@ def main():
     config = json.loads((ROOT / 'experiment_config.json').read_text())
     if config['model'] != CHAT_MODEL:
         raise ValueError('配置模型与客户端模型不一致')
-    if not 0 < config['budget_cap_cny'] <= 3:
-        raise ValueError('本轮新增调用的预算必须大于0且不超过3元')
+    budget = config['budget_cap_cny']
+    if type(budget) not in (int, float) or not 0 < budget <= BUDGET_LIMIT_CNY:
+        raise ValueError(f'本轮新增调用的预算必须为数值、大于0且不超过{BUDGET_LIMIT_CNY}元')
     cases = select_cases(json.loads((ROOT / f'data/cases_{args.split}.json').read_text()), args.ids)
     bind_run(ROOT)
     client = Client(ROOT, cap_cny=config['budget_cap_cny']); retriever = Retriever(ROOT, client, config)
