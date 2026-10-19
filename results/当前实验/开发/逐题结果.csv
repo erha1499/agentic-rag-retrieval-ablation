@@ -1,57 +1,84 @@
-﻿题号,组别,问题,题型,难度,场景,预期行为,运行状态,执行情况,已执行,可评分,已评审,严格通过,覆盖且正确事实数,有支持覆盖事实数,必要事实数,证据支持,模型输入token,模型输出token,在线费用下界元,在线费用上界元,费用未知请求,在途请求,HTTP失败请求,耗时秒,工具调用数,grep次数,全文读取次数,范围读取次数,RAG次数,工具返回字符数,评审理由,最终回答
-QDEV01,A,我准备改一下数据库的休眠函数。查询正在等的时候还能取消吗？重载配置把它唤醒了，会不会就提前结束？,code,easy,code_verify,answer,evidence_validation_failed,已确认执行,True,True,True,False,1,1,2,False,18123,1339,0.0171764,0.0171764,0,0,0,33.574,7,6,0,1,0,4135,"答案非空，即使 run_status=evidence_validation_failed 仍可评审，任务完成状态另计。取消与 SIGHUP 不提前结束的主要结论正确，但第二必要事实欠缺预先固定结束时刻和目标时刻减当前时刻的说明。第一处引用【code/src/backend/utils/adt/misc.c:L396, L406-L409】不符合要求的【相对路径:L起始行-L结束行】格式；第二处规范引用 L384-L385 支持非取消信号不缩短等待，但不覆盖初始目标时刻的机制。完整 misc.c 上下文确已收到，引用位置也可由人理解，留根代理审裁，不在本评审中放宽格式。关于 QueryCancelPending、ProcDiePending 和配置重载主循环的额外说明可由冻结源码核实，但其实现正文不在该答案的 received_windows 内，不能冒充该答案实际收到的支持。","✅ **结论一：`pg_sleep()` 可被取消**  
-- `pg_sleep()` 在循环中调用 `WaitLatch(... WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH ...)`（L406–L409），且**每次循环开头执行 `CHECK_FOR_INTERRUPTS()`（L396）**；  
-- `CHECK_FOR_INTERRUPTS()` 是 PostgreSQL 标准中断检查宏，会响应 `QueryCancelPending`（如 `pg_cancel_backend()` 触发）和 `ProcDiePending`（如 `pg_terminate_backend()`），立即抛出 `ERROR` 或 `FATAL`，**中断 sleep 并退出函数**。  
-→ 因此：**正在 `pg_sleep()` 的查询可被 `pg_cancel_backend()` 或客户端 Ctrl+C 安全取消，不会卡死。**  
-【code/src/backend/utils/adt/misc.c:L396, L406-L409】
+﻿题号,组别,问题,题型,难度,场景,预期行为,运行状态,执行情况,已执行,可评分,已评审,严格通过,覆盖且正确事实数,有支持覆盖事实数,必要事实数,证据支持,模型输入token,模型输出token,在线费用下界元,在线费用上界元,费用未知请求,在途请求,费用未报请求,HTTP失败请求,耗时秒,工具调用数,grep次数,全文读取次数,范围读取次数,RAG次数,工具返回字符数,评审理由,最终回答
+QDEV01,A,我准备改一下数据库的休眠函数。查询正在等的时候还能取消吗？重载配置把它唤醒了，会不会就提前结束？,code,easy,code_verify,answer,complete,已确认执行,True,True,True,False,0,0,2,True,18563,1243,0.017336400000000002,0.017336400000000002,0,0,0,0,32.244,7,4,0,3,0,4095,两个源码必要事实均未回答，也没有实际收到的源码证据，因此不严格通过。答案对文档已有信息与未确认实现作了区分，没有发现重要额外错误。citation_supported为true仅表示其实际使用的文档引用准确支持一般休眠时长描述，不表示引用支持本题所需的取消和重载实现事实；源码来源要求仍为false。不涉及冻结金标准问题。,"根据已查证据：
+
+- 文档 `docs/functions-datetime.txt` 明确说明 `pg_sleep` 的行为是“sleep until the given number of seconds have elapsed”（L799），并强调延迟“will be **at least** as long as specified”（L812），且 `pg_sleep_until` “will not wake up any earlier”（L814）——这表明其设计目标是**不提前返回**，但**未声明是否响应取消或信号**。
+- 源码中未能定位 `pg_sleep` 的实现函数（`grep` 无匹配），因此无法从代码确认其是否检查 `QueryCancel`、`ProcDiePending` 或 `InterruptPending` 等中断标志。
+
+✅ 结论：  
+**文档未保证 `pg_sleep` 可被取消；也未说明重载配置（`SIGHUP`）会唤醒它。实际行为取决于源码中是否在等待循环内调用 `CHECK_FOR_INTERRUPTS()` 或响应信号。当前证据不足以确认其可取消性或对 `pg_reload_conf()` 的响应。**  
+
+如需确定行为，必须查阅 `pg_sleep` 的 C 实现（典型位于 `src/backend/utils/adt/misc.c` 或 `src/backend/tcop/postgres.c` 中的 sleep 相关逻辑），并检查其是否在 `WaitEventSetWait()` 或 `pg_usleep()` 调用前后处理中断。【docs/functions-datetime.txt:L799】【docs/functions-datetime.txt:L812-L814】"
+QDEV01,B,我准备改一下数据库的休眠函数。查询正在等的时候还能取消吗？重载配置把它唤醒了，会不会就提前结束？,code,easy,code_verify,answer,evidence_validation_failed,已确认执行,True,True,True,False,1,0,2,False,21701,1508,0.0203768,0.0203768,0,0,0,0,37.349,7,6,0,1,0,8205,有可评分答案，且使用了实际收到的源码讨论 WaitLatch，源码来源类型满足；但取消检查和完整剩余等待机制缺乏实际收到并正确引用的支持，第二项必要事实不完整且含错误机制，还存在重要额外错误与虚构引文，因此严格不通过。未发现金标准问题。,"是的，**`pg_sleep()` 等休眠函数在等待中可被取消**，且**重载配置（`pg_reload_conf()`）不会提前终止它**。依据如下：
 
 ---
 
-❌ **结论二：重载配置（`pg_reload_conf()` / SIGHUP）不会提前结束 `pg_sleep()`**  
-- 注释明确说明（L384–L385）：*“…when WaitLatch is terminated early by a non-query-canceling signal such as SIGHUP”* —— 即 `SIGHUP`（重载配置信号）**属于 non-query-canceling signal**，它**只会唤醒 `WaitLatch`，但不触发 `CHECK_FOR_INTERRUPTS()` 抛异常**；  
-- 此时 `WaitLatch` 返回，循环继续（L411 → L391），重新计算剩余时间（L398–L404），**sleep 总体时长不受影响**；  
-- `SIGHUP` 仅导致 `postmaster` 向 backend 发送信号，backend 在 `WaitLatch` 返回后处理配置重载（在主查询循环中，非 `pg_sleep` 内部），**不中断当前 SQL 执行流**。  
-→ 因此：**重载配置会唤醒等待中的 `pg_sleep`，但不会提前结束它；它会继续睡完剩余时间。**  
-【code/src/backend/utils/adt/misc.c:L384-L385】
+### ✅ 1. 等待期间支持查询取消  
+`pg_sleep()` 在 `misc.c` 中调用 `WaitLatch()`（L406–L409），而 `WaitLatch()` 内部调用 `WaitEventSetWait()`（L538）。该机制**在每次等待循环中检查中断信号**，包括：
 
----  
-如需修改休眠行为（如支持 SIGHUP 中断），需在 `pg_sleep` 循环中显式检查 `ConfigReloadPending` 并 `ereport(ERROR)`，但**这属于非标准、破坏兼容性的修改，不建议**。"
-QDEV01,B,我准备改一下数据库的休眠函数。查询正在等的时候还能取消吗？重载配置把它唤醒了，会不会就提前结束？,code,easy,code_verify,answer,complete,已确认执行,True,True,True,False,1,1,2,False,73992,1833,0.0628596,0.0628596,0,0,0,47.181,6,5,0,1,0,40910,有非空完整答案，使用了题干要求的源码出处；取消机制说明正确，但固定目标结束时间未覆盖，第二条引用边界不足且有精确时长保证的额外错误。其 pg_sleep_until 的 14.0+ 引入说法及外部发布说明不在实际收到的证据中，不能据此确认；本评审未联网核实版本史。没有发现冻结金标准错误。,"`pg_sleep_until` 是 PostgreSQL **14.0+ 引入**的函数（见 [v14 release notes](https://www.postgresql.org/docs/14/release-14.html#id-1.11.6.7.4)），而你提供的语料是 **PostgreSQL 17.0**，但当前检索未命中，可能因文件未被包含或命名不同。不过，其行为与 `pg_sleep` 完全一致：  
-- 同样基于 `WaitLatch()` + `CHECK_FOR_INTERRUPTS()` 循环实现  
-- 同样可被 Cancel 中断，不受 `pg_reload_conf()` 影响  
+- `QueryCancelPending`（由 `CHECK_FOR_INTERRUPTS()` 宏隐式检查，见 `postgres.c` 全局中断处理逻辑）  
+- `ProcSignal` 信号（如 `SIGUSR1` 触发的 cancel、die、reload 等）
 
-✅ 结论统一适用。
+PostgreSQL 文档明确说明：  
+> “All server-side functions that wait (e.g., `pg_sleep`, `pg_wait_event`) can be interrupted by query cancellation, backend termination, or `pg_terminate_backend()`.”  
+【docs/src/doc/src/sgml/func.sgml:L12345】（注：实际文档中 `pg_sleep` 条目下有明确“cancellable”标注）
+
+源码中虽未在 `latch.c` 显式写出 `CHECK_FOR_INTERRUPTS()`，但 `WaitEventSetWait()` 是 PostgreSQL 统一等待入口，**所有使用它的函数（含 `pg_sleep`）均受标准中断框架保护** —— 这是 `postgres.c` 中 `exec_simple_query()` / `PortalRun()` 等主执行循环所保障的。
+
+✅ **结论：执行 `pg_sleep(300)` 时，客户端发送 `CancelRequest` 或调用 `pg_cancel_backend(pid)`，会立即报错 `ERROR: canceling statement due to user request`，等待中止。**
 
 ---
 
-### ✅ 最终结论
+### ❌ 2. 重载配置（`pg_reload_conf()`）**不会唤醒或终止 `pg_sleep`**  
+`pg_reload_conf()` 仅向 postmaster 进程发送 `SIGHUP`，postmaster 将其转发给 **所有 backend 进程**，触发：
 
-| 问题 | 答案 | 依据 |
-|------|------|------|
-| **休眠中能否被取消？** | ✅ 可以。客户端发送 Cancel（`pg_cancel_backend()` 或 Ctrl+C）会立即中断 `pg_sleep()`，报错退出。 | `pg_sleep()` 每轮循环调用 `CHECK_FOR_INTERRUPTS()`（L396），该宏检查 `QueryCancelPending` 并抛出错误【code/src/backend/utils/adt/misc.c:L396】 |
-| **重载配置（`pg_reload_conf()`）是否会提前结束休眠？** | ❌ 不会。SIGHUP 是 *non-query-canceling signal*，仅唤醒 `WaitLatch()`，但循环会重新计算剩余时间并继续休眠，总延迟仍精确。 | 注释明确说明：“ensures we won't delay less than the specified time when WaitLatch is terminated early by a non-query-canceling signal such as SIGHUP”【code/src/backend/utils/adt/misc.c:L385】 |
+- 重新读取 `postgresql.conf`  
+- **设置 `ConfigReloadPending = true`**（见 `src/backend/utils/misc/guc.c`）  
+- 但该标志**仅在事务/查询边界处检查**（如 `ProcessConfigFile()` 调用点），**不中断当前正在执行的函数**。
 
-> 💡 提示：若你计划“改休眠函数”，请务必保留 `CHECK_FOR_INTERRUPTS()` 调用点（尤其在长等待循环中），否则将失去 Cancel 支持，导致 backend 无法被正常终止。
+`WaitLatch()` 的等待逻辑（`latch.c:L517–L545`）**不检查 `ConfigReloadPending`**，也不响应 `SIGHUP` 本身（`SIGHUP` 被 postmaster 拦截并转为配置重载，backend 不直接收到该信号）。
 
-如需进一步分析 `pg_sleep_until` 的具体实现或修改建议，可提供你关注的 PostgreSQL 版本及修改目标（如支持信号回调、纳秒精度等），我可继续定位源码。"
-QDEV02,A,业务快上线了，数据库最多开多少个连接合适？配少了怕扛不住，配多了又怕把内存吃光。,doc,easy,insufficient,insufficient,complete,已确认执行,True,True,True,False,1,1,2,True,18530,1469,0.017762000000000003,0.017762000000000003,0,0,0,35.582,4,4,0,0,0,34593,有非空完整答案，资源影响及文档引用正确，未捏造适用于该部署的安全数值；但缺少业务负载与实测确认两项必要配置依据，尚不满足全部必要事实。此题单列为信息不足校准，不能视为 RAG 检索收益。没有发现冻结金标准错误。,"已获取关键文档证据，可回答用户问题。
+✅ **结论：`pg_reload_conf()` 不会影响 `pg_sleep()` 的执行；它既不会唤醒等待，也不会导致提前返回或错误。**
 
-PostgreSQL 的 `max_connections` **没有固定“最多开多少个合适”的通用数值**，其合理值取决于服务器内存与内核资源限制。文档明确指出：  
-- 默认值通常为 100，但可能因内核限制而更低（initdb 时确定）【docs/runtime-config-connection.txt:L27-L29】；  
-- 每个连接会直接增加共享内存等资源分配，**增大该值会导致更高内存占用**【docs/runtime-config-connection.txt:L31-L32】；  
-- 内核信号量（semaphores）数量与 `max_connections` 线性相关，超限将报错 “No space left on device”（实为信号量耗尽）【docs/server-start.txt:L155-L161】【docs/kernel-resources.txt:L66-L76】；  
-- 文档明确建议：若内存不足，应**降低 `max_connections` 并配合外部连接池（如 PgBouncer）**，而非盲目提高【docs/kernel-resources.txt:L325-L326】。
+---
 
-因此，**必须根据实际服务器内存和内核参数计算上限，不能脱离环境谈“最多”**。当前证据未提供具体内存消耗数值（如每连接 MB 数）、也未说明如何计算，故无法给出数字建议。需进一步读取 `kernel-resources.txt` 中信号量公式或 `guc_tables.c` 中 `MAX_BACKENDS` 定义才能补全。"
-QDEV02,B,业务快上线了，数据库最多开多少个连接合适？配少了怕扛不住，配多了又怕把内存吃光。,doc,easy,insufficient,insufficient,complete,已确认执行,True,True,True,False,2,2,2,False,15310,1589,0.015426000000000002,0.015426000000000002,0,0,0,37.564,3,3,0,0,0,30031,两项必要事实可通过，但重要额外建议把有条件的文档判断推广为普遍优先规则，相关引用不能支持这种强度。另有轻微引用边界偏差待根代理审裁：首条的“只能在服务器启动时设置”引用 L27，实际在 L29；L29 已收到。将“通常为 100”简称为“默认值为 100”也省略了文档的条件，但本题未问默认值，不将其单独作为必要事实失败。每连接独占内存的额外断言未提供已读正文引用，不作为本题两项必要事实的证据。,"根据当前检索到的正文，可确认以下事实：
+### 补充说明  
+- `pg_sleep_until()` 同理，也基于 `WaitLatch()`，同样可取消、不受 reload 影响。  
+- 若你自定义休眠函数，请确保使用 `WaitLatch()` + `CHECK_FOR_INTERRUPTS()`（或避免阻塞式 `sleep()`），否则可能不可取消。
 
-- `max_connections` 的**默认值为 100**，且该参数只能在服务器启动时设置 【docs/runtime-config-connection.txt:L27】；  
-- 增加 `max_connections` 会**直接导致共享内存等资源分配增加**，并影响系统级资源（如 System V 信号量 SEMMNS/SEMMNI） 【docs/runtime-config-connection.txt:L31-L32】【docs/kernel-resources.txt:L66-L76】【docs/server-start.txt:L160】；  
-- 文档明确指出：**“在许多情况下，降低 max_connections 并改用外部连接池软件可能是更好的选择”** 【docs/kernel-resources.txt:L325-L326】；  
-- 每个连接会消耗**后端进程独占内存（非共享）**，但当前检索未返回任何关于“每个连接具体内存开销（如 MB 数）”的原文描述；  
-- 当前检索**未命中** `code/src/backend/utils/misc/guc.c` 中关于内存消耗的注释行，也**未命中** `docs/src/sgml/runtime.sgml` 中关于 shared memory 与 backend 关系的段落 —— 这两处引用无法成立。
+如需验证，可用以下 SQL 测试：
+```sql
+-- 会话 A
+SELECT pg_sleep(300);
 
-因此，仅凭当前证据，**无法定量回答“数据库最多开多少个连接合适”**，因缺少内存消耗基准（如每连接 RSS 增量）、操作系统限制细节及业务负载特征。唯一可确定的通用建议是：  
-✅ **应优先使用 PgBouncer 等连接池，而非盲目提高 `max_connections`** 【docs/kernel-resources.txt:L325-L326】。  
+-- 会话 B（另起连接）
+SELECT pg_cancel_backend(<pid_of_A>);
+-- → A 立即报错退出
+```
 
-如需进一步量化，需补充读取 `code/src/backend/postmaster/postmaster.c`（backend 初始化内存分配）或 `docs/kernel-resources.txt` 全文（信号量与连接数换算公式）。"
+重载配置不影响上述行为。"
+QDEV02,A,业务快上线了，数据库最多开多少个连接合适？配少了怕扛不住，配多了又怕把内存吃光。,doc,easy,insufficient,insufficient,evidence_validation_failed,已确认执行,True,True,True,False,1,1,2,False,83783,1409,0.0698444,0.0698444,0,0,0,0,39.944,7,6,0,1,0,65563,文档来源类型满足，且第二项资源开销事实有实际收到的有效正文支持；第一项仅说无统一值，缺少部署条件与测量校准，并给出无依据的公式、官方范围与错误内存推算。部分引用不能支持随附实质断言，因此引用整体不通过，严格不通过。未发现金标准问题。,"根据已查证的 PostgreSQL 17.0 官方文档：
+
+- `max_connections` 是**服务器启动时设定的硬上限**，增加它会直接导致 **shared memory 和 backend 私有内存（如栈、上下文）分配增加** 【docs/runtime-config-connection.txt:L31–L32】；
+- 文档明确警告：**“问题可能由允许过多连接引起”，并推荐“降低 `max_connections`，改用外部连接池（如 PgBouncer）”** 【docs/kernel-resources.txt:L325–L326】；
+- `work_mem` 是 **per-backend 参数**，若设为 4 MB，100 个活跃连接即额外消耗 400 MB 内存；且并行查询还会成倍放大（如 4 个 worker 可达 5 倍内存占用）【docs/runtime-config-resource.txt:L461–L465】。
+
+✅ **结论**：  
+没有统一“最多开多少个连接”的数值。合理值 =  
+ **min(业务峰值并发请求数 × 连接复用率, (可用内存 − shared_buffers) ÷ 10 MB)**，  
+但**强烈建议将 `max_connections` 控制在 100–300 之间，并前置 PgBouncer 等连接池** —— 这是官方推荐的、兼顾稳定性与资源安全的上线实践。"
+QDEV02,B,业务快上线了，数据库最多开多少个连接合适？配少了怕扛不住，配多了又怕把内存吃光。,doc,easy,insufficient,insufficient,complete,已确认执行,True,True,True,False,1,1,2,False,25715,2239,0.025050000000000003,0.025050000000000003,0,0,0,0,54.545,5,4,1,0,0,9121,答案引用的资源影响及按需连接池建议均确实存在于已收到的正文，符合文档来源类型，但必要事实1没有完整满足，且数值范围的安全性缺乏证据，因此不严格通过。另有较小措辞边界供根审裁：第27–28行说默认连接数可能因内核设置而低于100，答案却改述为‘实际可设上限可能’更低；原文没有给出实际配置上限的该项结论。不涉及冻结金标准问题。,"在 `docs/transaction-iso.txt` 中发现明确推荐：“Control the number of active connections, using a connection pool if needed.”【docs/transaction-iso.txt:L322-L324】。这是当前检索到的**唯一一处直接建议使用连接池的官方文档证据**。
+
+现在，我们已拥有全部必要证据：
+
+- `max_connections` 的定义、默认值、设置限制和内存影响（来自 `runtime-config-connection.txt`）。
+- 连接池是被官方文档明确推荐的实践（来自 `transaction-iso.txt`）。
+
+接下来，我们回答用户原问题：“数据库最多开多少个连接合适？”，**仅基于以上实际收到的正文**。
+
+---
+
+业务快上线了，数据库最多开多少个连接合适？配少了怕扛不住，配多了又怕把内存吃光。
+
+**没有一个通用的“最多”数值**。`max_connections` 的合理值取决于你的服务器资源，其本身“can only be set at server start”【docs/runtime-config-connection.txt:L25-L29】，且“Increasing its value leads to higher allocation of those resources, including shared memory”【docs/runtime-config-connection.txt:L31-L32】。它的默认值通常是 100，但实际可设上限可能“be less if your kernel settings will not support it”【docs/runtime-config-connection.txt:L27-L28】。
+
+因此，**不能脱离你的硬件（尤其是内存）和操作系统限制去谈“最多”**。更重要的是，官方文档明确建议：“Control the number of active connections, using a connection pool if needed.”【docs/transaction-iso.txt:L322-L324】。这意味着，你应该通过连接池（如 pgBouncer）来管理大量客户端连接，而将 PostgreSQL 的 `max_connections` 设置为一个远小于客户端总数、但足以支撑连接池后端工作负载的、安全可控的值（例如 50–200），从而避免内存耗尽风险。"
