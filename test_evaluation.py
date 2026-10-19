@@ -10,7 +10,7 @@ import unittest
 from experiment_state import bind_run
 from prepare_review import prepare, received_windows
 from qwen_client import CHAT_MODEL
-from summarize import cost_stats, public_text, summarize, validate_review
+from summarize import compare_costs, cost_quality_comparison, cost_stats, public_text, summarize, validate_review
 
 
 def write_json(path, data):
@@ -35,6 +35,150 @@ def review(blind_id, answer=True, passed=True):
 
 
 class EvaluationTests(unittest.TestCase):
+    def comparison_fixture(self):
+        rows = [{'题号': 'Q01', '组别': arm, '已执行': True, '已评审': True,
+                 '运行状态': 'complete', '可评分': True, '严格通过': False,
+                 '在线费用下界元': cost, '在线费用上界元': cost,
+                 '费用未知请求': 0, '费用未报请求': 0, '在途请求': 0, 'RAG次数': 0}
+                for arm, cost in [('A', 1), ('B', .5)]]
+        reviews = {}
+        for arm in ('A', 'B'):
+            value = review(arm)
+            value['strict_pass'] = False
+            value['fact_results'].append({'index': 2, 'covered': False, 'correct': False,
+                                          'evidence_supported': False, 'comment': '共同遗漏'})
+            reviews[('Q01', arm)] = value
+        return rows, reviews
+
+    def test_lower_cost_with_equal_partial_quality_does_not_require_strict_pass(self):
+        rows, reviews = self.comparison_fixture()
+        for value in reviews.values():
+            validate_review(value, {'required_facts': ['事实一', '事实二']}, '有答案')
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['conclusion'], 'cost_reduction_observed_under_quality_guardrail')
+        self.assertEqual(result['quality_status'], 'no_regression_observed')
+        self.assertEqual(result['cost']['saving_rate'], .5)
+        self.assertTrue(result['all_tasks_complete'])
+        self.assertFalse(any(row['严格通过'] for row in rows))
+        self.assertEqual(result['cost']['B']['lower_cny'], .5)  # B没有调用RAG仍计入主分母。
+
+    def test_gaining_another_fact_cannot_offset_losing_supported_fact(self):
+        rows, reviews = self.comparison_fixture()
+        reviews[('Q01', 'B')]['fact_results'].reverse()
+        for index, fact in enumerate(reviews[('Q01', 'B')]['fact_results'], 1):
+            fact['index'] = index
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['conclusion'], 'quality_regression_observed')
+        reasons = result['quality_pairs'][0]['reasons']
+        self.assertIn('必要事实1丢失正确覆盖', reasons)
+        self.assertIn('必要事实1丢失证据支持', reasons)
+        self.assertEqual(sum(fact['correct'] for fact in reviews[('Q01', 'A')]['fact_results']),
+                         sum(fact['correct'] for fact in reviews[('Q01', 'B')]['fact_results']))
+
+    def test_material_errors_need_more_than_an_equal_count(self):
+        for a_errors, b_errors, expected in [
+                ([], ['新增重要错误'], 'regression_observed'),
+                (['旧错误'], ['另一种错误'], 'needs_review'),
+                (['旧错误一', '旧错误二'], ['仍有重要错误'], 'needs_review')]:
+            with self.subTest(a_errors=a_errors, b_errors=b_errors):
+                rows, reviews = self.comparison_fixture()
+                reviews[('Q01', 'A')]['material_errors'] = a_errors
+                reviews[('Q01', 'B')]['material_errors'] = b_errors
+                result = cost_quality_comparison(rows, reviews)
+                self.assertEqual(result['quality_status'], expected)
+                self.assertNotEqual(result['conclusion'], 'cost_reduction_observed_under_quality_guardrail')
+
+    def test_source_and_citation_regressions_block_cost_success(self):
+        for field, reason in [('source_requirement_met', '来源要求从通过变为不通过'),
+                              ('citation_supported', '引用支持从通过变为不通过')]:
+            with self.subTest(field=field):
+                rows, reviews = self.comparison_fixture()
+                reviews[('Q01', 'B')][field] = False
+                result = cost_quality_comparison(rows, reviews)
+                self.assertEqual(result['conclusion'], 'quality_regression_observed')
+                self.assertIn(reason, result['quality_pairs'][0]['reasons'])
+
+    def test_more_expensive_b_is_not_a_cost_reduction(self):
+        rows, reviews = self.comparison_fixture()
+        rows[1].update({'在线费用下界元': 1.5, '在线费用上界元': 1.5, 'RAG次数': 2})
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['conclusion'], 'no_cost_reduction')
+        self.assertEqual(result['cost']['saving_rate'], -.5)
+
+    def test_equal_costs_do_not_create_floating_point_savings(self):
+        rows, reviews = self.comparison_fixture()
+        rows[0].update({'在线费用下界元': .1 + .2, '在线费用上界元': .1 + .2})
+        rows[1].update({'在线费用下界元': .3, '在线费用上界元': .3})
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['cost']['saving_rate'], 0)
+        self.assertEqual(result['conclusion'], 'no_cost_reduction')
+
+    def test_unexecuted_cheaper_b_cannot_claim_savings(self):
+        rows, reviews = self.comparison_fixture()
+        rows[1].update({'已执行': False, '已评审': False, '运行状态': 'not_started',
+                        '可评分': False, '在线费用下界元': 0, '在线费用上界元': 0})
+        reviews.pop(('Q01', 'B'))
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['conclusion'], 'incomplete')
+        self.assertFalse(result['all_tasks_complete'])
+        self.assertIsNone(result['cost']['saving_rate'])
+        self.assertIsNone(result['cost']['saving_rate_lower_bound'])
+        self.assertIsNone(result['cost']['saving_rate_upper_bound'])
+
+    def test_cost_uncertainty_never_becomes_a_point_estimate(self):
+        for updates, status, conclusion in [
+                ({'费用未知请求': 1, '在线费用上界元': .8}, 'bounded_unknown', 'cost_unknown'),
+                ({'费用未报请求': 1}, 'unreported', 'cost_unknown'),
+                ({'在途请求': 1, '运行状态': 'in_flight'}, 'in_flight', 'incomplete')]:
+            with self.subTest(status=status):
+                rows, reviews = self.comparison_fixture()
+                rows[1].update(updates)
+                result = cost_quality_comparison(rows, reviews)
+                self.assertEqual(result['cost']['status'], status)
+                self.assertEqual(result['conclusion'], conclusion)
+                self.assertIsNone(result['cost']['saving_rate'])
+                if status == 'bounded_unknown':
+                    self.assertAlmostEqual(result['cost']['saving_rate_lower_bound'], .2)
+                    self.assertAlmostEqual(result['cost']['saving_rate_upper_bound'], .5)
+                else:
+                    self.assertIsNone(result['cost']['saving_rate_lower_bound'])
+                    self.assertIsNone(result['cost']['saving_rate_upper_bound'])
+                if status == 'unreported':
+                    self.assertIsNone(result['cost']['B']['upper_cny'])
+
+    def test_zero_baseline_and_failed_tasks_cannot_claim_success(self):
+        rows, reviews = self.comparison_fixture()
+        rows[0].update({'在线费用下界元': 0, '在线费用上界元': 0})
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['conclusion'], 'zero_baseline_cost')
+        self.assertIsNone(result['cost']['saving_rate'])
+        for status in ('incomplete_answer', 'http_error', 'budget_blocked'):
+            with self.subTest(status=status):
+                rows, reviews = self.comparison_fixture()
+                rows[1]['运行状态'] = status
+                result = cost_quality_comparison(rows, reviews)
+                self.assertFalse(result['all_tasks_complete'])
+                self.assertEqual(result['conclusion'], 'quality_regression_observed')
+
+    def test_cost_bounds_and_all_planned_pairs_are_retained(self):
+        rows, reviews = self.comparison_fixture()
+        second = copy.deepcopy(rows)
+        for row in second:
+            row['题号'] = 'Q02'
+        second[1].update({'RAG次数': 1, '在线费用下界元': 2, '在线费用上界元': 2})
+        rows.extend(second)
+        for arm in ('A', 'B'):
+            reviews[('Q02', arm)] = copy.deepcopy(reviews[('Q01', arm)])
+        result = cost_quality_comparison(rows, reviews)
+        self.assertEqual(result['cost']['A']['lower_cny'], 2)
+        self.assertEqual(result['cost']['B']['lower_cny'], 2.5)
+        self.assertEqual(result['cost']['saving_rate'], -.25)
+        self.assertEqual(len(result['quality_pairs']), 2)
+        rows[0].update({'费用未知请求': 1, '在线费用下界元': .5, '在线费用上界元': 1})
+        costs = compare_costs(rows[:2])
+        self.assertEqual(costs['saving_rate_lower_bound'], 0)
+        self.assertEqual(costs['saving_rate_upper_bound'], .5)
+
     def test_ranges_are_actual_not_file_length(self):
         values = [
             {'path': 'docs/demo.txt', 'start_line': 11, 'end_line': 12, 'total_lines': 900, 'text': '11: x\n12: y'},
@@ -140,6 +284,22 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual(result['state'], 'complete')
             self.assertEqual(result['paired']['both_pass'], 1)
             self.assertEqual(result['by_arm']['A']['strict_task_success_rate'], 1)
+            self.assertEqual(result['cost_quality_comparison']['primary_metric'], 'online_cost_saving_rate')
+            self.assertEqual(result['cost_quality_comparison']['conclusion'],
+                             'cost_reduction_observed_under_quality_guardrail')
+            self.assertAlmostEqual(result['cost_quality_comparison']['cost']['saving_rate'], .5)
+            self.assertEqual(result['cost_quality_by_scenario']['未标注']['conclusion'],
+                             'cost_reduction_observed_under_quality_guardrail')
+            records.append({**call, 'reservation_id': 'refused', 'label': 'test:Q01:B:step1',
+                            'http_status': 403, 'usage_status': 'unreported',
+                            'usage': None, 'public_price_cost_cny': None})
+            result, row = snapshot()
+            self.assertEqual(result['by_arm']['B']['unreported_calls'], 1)
+            self.assertEqual(result['cost_quality_comparison']['conclusion'], 'cost_unknown')
+            self.assertIsNone(result['cost_quality_comparison']['cost']['saving_rate'])
+            scored_rows = json.loads((root / 'runs/review/scored_rows.json').read_text())
+            self.assertEqual(scored_rows[1]['费用未报请求'], 1)
+            self.assertEqual(result['cost_quality_by_scenario']['未标注']['cost']['status'], 'unreported')
 
     def test_unassigned_reservation_is_still_in_flight(self):
         with tempfile.TemporaryDirectory() as folder:

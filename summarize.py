@@ -124,6 +124,7 @@ def aggregate(rows):
         'online_cost_lower_cny': sum(row['在线费用下界元'] for row in rows),
         'online_cost_upper_cny': sum(row['在线费用上界元'] for row in rows),
         'unknown_calls': sum(row['费用未知请求'] for row in rows),
+        'unreported_calls': sum(row['费用未报请求'] for row in rows),
         'pending_calls': sum(row['在途请求'] for row in rows),
         'cost_median_lower_cny': median([row['在线费用下界元'] for row in executed]),
         'cost_median_upper_cny': median([row['在线费用上界元'] for row in executed]),
@@ -159,6 +160,95 @@ def paired_outcomes(rows):
         ap, bp = a['严格通过'] is True, b['严格通过'] is True
         result['both_pass' if ap and bp else 'A_only_pass' if ap else 'B_only_pass' if bp else 'neither_pass'] += 1
     return result
+
+
+def compare_costs(rows):
+    costs = {arm: {
+        'lower_cny': sum(row['在线费用下界元'] for row in rows if row['组别'] == arm),
+        'upper_cny': (None if any(row['费用未报请求'] for row in rows if row['组别'] == arm) else
+                      sum(row['在线费用上界元'] for row in rows if row['组别'] == arm))}
+        for arm in ('A', 'B')}
+    finished = bool(rows) and all(row['已执行'] and row['运行状态'] not in NON_TERMINAL for row in rows)
+    unreported = any(row['费用未报请求'] for row in rows)
+    pending = any(row['在途请求'] for row in rows)
+    unknown = any(row['费用未知请求'] for row in rows)
+    status = 'unreported' if unreported else 'in_flight' if pending else 'bounded_unknown' if unknown else 'known'
+    a, b = costs['A'], costs['B']
+    bounded = finished and not unreported
+    # 抑制费用浮点求和误差，避免相同成本被判断为微小降本。
+    lower = round(1 - b['upper_cny'] / a['lower_cny'], 12) if bounded and a['lower_cny'] > 0 else None
+    upper = round(1 - b['lower_cny'] / a['upper_cny'], 12) if bounded and a['upper_cny'] > 0 else None
+    return {'A': a, 'B': b, 'status': status, 'workload_finished': finished,
+            'saving_rate': lower if status == 'known' else None,
+            'saving_rate_lower_bound': lower, 'saving_rate_upper_bound': upper}
+
+
+def cost_quality_comparison(rows, reviews):
+    """成本为主指标；只报告当前配对样本已测维度的质量变化。"""
+    pairs = {}
+    for row in rows:
+        pairs.setdefault(row['题号'], {})[row['组别']] = row
+    quality = []
+    for case_id, pair in sorted(pairs.items()):
+        a, b = pair['A'], pair['B']
+        ra, rb = reviews.get((case_id, 'A')), reviews.get((case_id, 'B'))
+        comparable = all(row['已执行'] and row['已评审'] and row['运行状态'] not in NON_TERMINAL
+                         for row in (a, b)) and ra is not None and rb is not None
+        reasons = []
+        if comparable:
+            for label, av, bv in [('最终回答', a['可评分'], b['可评分']),
+                                  ('运行完成', a['运行状态'] == 'complete', b['运行状态'] == 'complete'),
+                                  ('来源要求', ra['source_requirement_met'], rb['source_requirement_met']),
+                                  ('引用支持', ra['citation_supported'], rb['citation_supported'])]:
+                if av and not bv:
+                    reasons.append(label + '从通过变为不通过')
+            for index, (fa, fb) in enumerate(zip(ra['fact_results'], rb['fact_results']), 1):
+                if fa['covered'] and fa['correct'] and not (fb['covered'] and fb['correct']):
+                    reasons.append(f'必要事实{index}丢失正确覆盖')
+                if fa['evidence_supported'] and not fb['evidence_supported']:
+                    reasons.append(f'必要事实{index}丢失证据支持')
+            if len(rb['material_errors']) > len(ra['material_errors']):
+                reasons.append('重要错误数量增加')
+            if reasons:
+                status = 'regression_observed'
+            elif rb['material_errors']:
+                status = 'needs_review'
+                reasons.append('B仍有重要错误，数量未增加不能证明性质与严重程度未退化')
+            elif not all(row['运行状态'] == 'complete' and row['可评分'] for row in (a, b)):
+                status = 'incomplete'
+            else:
+                status = 'no_regression_observed'
+        else:
+            status = 'incomplete'
+        quality.append({'id': case_id, 'status': status, 'reasons': reasons,
+                        'cost': compare_costs([a, b])})
+    quality_status = next((status for status in ('regression_observed', 'needs_review', 'incomplete')
+                           if any(pair['status'] == status for pair in quality)), 'no_regression_observed')
+    if not quality:
+        quality_status = 'incomplete'
+    costs = compare_costs(rows)
+    all_complete = bool(rows) and all(row['已执行'] and row['运行状态'] == 'complete'
+                                     and row['可评分'] and row['已评审'] for row in rows)
+    if not any(row['已执行'] for row in rows) and costs['status'] == 'known':
+        conclusion = 'not_started'
+    elif not costs['workload_finished'] or any(pair['status'] == 'incomplete' for pair in quality):
+        conclusion = 'incomplete'
+    elif costs['status'] != 'known':
+        conclusion = 'cost_unknown'
+    elif quality_status == 'regression_observed':
+        conclusion = 'quality_regression_observed'
+    elif quality_status != 'no_regression_observed' or not all_complete:
+        conclusion = 'quality_not_established'
+    elif costs['saving_rate'] is None:
+        conclusion = 'zero_baseline_cost'
+    elif costs['saving_rate'] > 0:
+        conclusion = 'cost_reduction_observed_under_quality_guardrail'
+    else:
+        conclusion = 'no_cost_reduction'
+    return {'primary_metric': 'online_cost_saving_rate', 'cost': costs,
+            'quality_status': quality_status, 'quality_pairs': quality,
+            'all_tasks_complete': all_complete, 'conclusion': conclusion,
+            'interpretation': '仅为当前样本已测维度的描述性观察，不证明统计非劣或未来问题质量不下降'}
 
 
 def summarize(root=ROOT, split='test', output=OUTPUT):
@@ -222,6 +312,7 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
                 '模型输入token': costs['chat_prompt_tokens'], '模型输出token': costs['chat_completion_tokens'],
                 '在线费用下界元': costs['cost_lower_bound_cny'], '在线费用上界元': costs['cost_upper_bound_cny'],
                 '费用未知请求': costs['unknown_calls'], '在途请求': costs['pending_calls'],
+                '费用未报请求': costs['unreported_calls'],
                 'HTTP失败请求': costs['http_failed_calls'], '耗时秒': run.get('seconds'),
                 '工具调用数': run.get('tool_calls', 0), 'grep次数': run.get('grep_calls', 0),
                 '全文读取次数': whole, '范围读取次数': ranged, 'RAG次数': run.get('rag_calls', 0),
@@ -237,6 +328,8 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
     api_total = cost_stats(records, config['budget_cap_cny'])
     result = {
         'split': split, 'freeze_sha256': fingerprint,
+        'primary_metric': config.get('primary_metric', 'online_cost_saving_rate'),
+        'cost_quality_comparison': cost_quality_comparison(rows, review_by_run),
         'state': ('in_flight' if api_total['pending_calls'] else
                   'not_started' if not any(row['已执行'] for row in rows) else
                   'complete' if fully_reviewed else 'pending_review' if terminal else 'partial'),
@@ -245,6 +338,9 @@ def summarize(root=ROOT, split='test', output=OUTPUT):
         'by_arm': {arm: aggregate([row for row in rows if row['组别'] == arm]) for arm in ('A', 'B')},
         'by_kind': grouped('题型'), 'by_difficulty': grouped('难度'), 'by_scenario': grouped('场景'),
         'paired': paired_outcomes(rows), 'api_total': api_total,
+        'cost_quality_by_scenario': {scenario: cost_quality_comparison(
+            [row for row in rows if row['场景'] == scenario], review_by_run)
+            for scenario in sorted({row['场景'] for row in rows})},
         'cost_by_phase': {phase: cost_stats([r for r in records if r.get('label', '').startswith(prefix)], config['budget_cap_cny'])
                           for phase, prefix in [('development', 'dev:'), ('formal', 'test:')]},
         'limitations': ['少量题目单次配对，不能声称跨数据库或统计显著的普遍收益',
